@@ -230,7 +230,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
       <h4>➕ 添加单条记录</h4>
       <div class="row">
         <div class="field"><label>月份</label><input type="month" id="aYm"></div>
-        <div class="field"><label>供应商名称</label><input type="text" id="aSup" placeholder="如：青岛恒顺通…"></div>
+        <div class="field"><label>供应商名称</label><input type="text" id="aSup" placeholder="可填简称，如：恒顺通"></div>
         <div class="field"><label>合同编号</label><input type="text" id="aHt"></div>
         <div class="field"><label>应付金额（原币）</label><input type="number" id="aAmt" step="0.01"></div>
         <div class="field"><label>应付金额（不含税）</label><input type="number" id="aNoTax" step="0.01"></div>
@@ -299,13 +299,47 @@ function fmtYm(y){ if(!y) return '—'; const p=String(y).split('-'); return p[0
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function shortHt(h){ return String(h||'').replace(/^SF\//,''); }
 
+/* 供应商简称对照（键为台账全称） */
+const SHORT={
+  '青岛恒顺通轨道交通设备有限公司':'恒顺通',
+  '青岛通运鑫科技有限公司':'通运鑫',
+  '青岛鑫汇通轨道交通设备有限公司':'鑫汇通',
+  '青岛金凯交通设备制造有限公司':'金凯',
+  '济南同工机电设备有限公司':'济南同工',
+  '领晟（青岛）轨道装备有限公司':'领晟',
+  '青岛普瑞莱轨道交通设备有限公司':'普瑞莱',
+  '青岛四方新诚志卓客车配件有限公司':'新诚',
+  '青岛铁路客车卧铺制造厂有限公司':'卧铺厂',
+  '中车物流有限公司':'中车物流',
+  '广州广冷华旭制冷空调实业有限公司':'广冷华旭',
+  '北京拂尘铁龙环境科技有限公司':'拂尘铁龙',
+  '青岛华超兴业交通设备有限公司':'华超兴业',
+  '今创集团股份有限公司':'今创',
+  '福建永森源木作有限公司':'永森源',
+  '青岛梓恒瑞轨道交通设备有限公司':'梓恒瑞',
+  '青岛大路客车配件有限公司':'大路',
+  '青岛正为机械有限公司':'正为',
+  '青岛锦宏超拓车辆配件有限公司':'锦宏超拓',
+  '青岛鑫昌源铁路设备有限公司':'鑫昌源',
+  '中嘉（河南）轨道交通装备有限公司':'中嘉',
+  '中车青岛四方机车车辆股份有限公司':'四方股份'
+};
+const REV={}; Object.keys(SHORT).forEach(k=>{ REV[SHORT[k]]=k; });
+function shortName(s){
+  const k=String(s||'');
+  if(SHORT[k]) return SHORT[k];
+  if(REV[k]) return k;
+  return k.replace(/^(青岛|济南|广州|北京|福建)/,'')
+          .replace(/(轨道交通设备|轨道交通装备|交通设备制造|制冷空调实业|木作|机械|车辆配件|客车配件|轨道装备|环境科技|机电设备|铁路设备|设备制造|科技|集团)?(股份)?有限公司$/,'')||k;
+}
+
 function buildFilterOptions(){
   const yms=[...new Set(DATA.map(r=>r.y).filter(Boolean))].sort();
   const sups=[...new Set(DATA.map(r=>r.s).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
   const ySel=document.getElementById('fYm'), sSel=document.getElementById('fSup');
   const yv=ySel.value, sv=sSel.value;
   ySel.innerHTML='<option value="">全部月份</option>'+yms.map(y=>`<option value="${y}">${fmtYm(y)}</option>`).join('');
-  sSel.innerHTML='<option value="">全部供应商</option>'+sups.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  sSel.innerHTML='<option value="">全部供应商</option>'+sups.map(s=>`<option value="${esc(s)}">${esc(shortName(s))}</option>`).join('');
   ySel.value=yv; sSel.value=sv;
 }
 function applyFilter(){
@@ -338,7 +372,7 @@ function render(){
   if(filtered.length){
     const agg={}; filtered.forEach(r=>{agg[r.s]=(agg[r.s]||0)+(Number(r.a)||0);});
     const top=Object.entries(agg).sort((x,y)=>y[1]-x[1])[0];
-    document.getElementById('stTopSup').textContent='金额最高：'+(top[0]||'—').replace(/有限公司|股份有限公司/g,'');
+    document.getElementById('stTopSup').textContent='金额最高：'+shortName(top[0]||'—');
   } else document.getElementById('stTopSup').textContent='—';
   document.getElementById('fCount').textContent=filtered.length;
   renderCharts(); renderTable();
@@ -362,12 +396,12 @@ function renderCharts(){
   },true);
 
   const pa={}; filtered.forEach(r=>{ if(r.s) pa[r.s]=(pa[r.s]||0)+(Number(r.a)||0); });
-  const pie=Object.entries(pa).sort((x,y)=>y[1]-x[1]).map(([n,v])=>({name:n,value:+v.toFixed(2)}));
+  const pie=Object.entries(pa).sort((x,y)=>y[1]-x[1]).map(([n,v])=>({name:shortName(n),full:n,value:+v.toFixed(2)}));
   if(!charts.pie) charts.pie=echarts.init(document.getElementById('chartPie'));
   charts.pie.setOption({
     tooltip:{trigger:'item',formatter:p=>`${p.name}<br/>${fmtN(p.value)} 元（${p.percent}%）`},
     legend:{type:'scroll',orient:'vertical',right:0,top:'middle',textStyle:{fontSize:11},
-      formatter:n=>n.length>12?n.slice(0,12)+'…':n},
+      formatter:n=>n.length>10?n.slice(0,10)+'…':n},
     series:[{type:'pie',radius:['42%','70%'],center:['36%','52%'],
       label:{formatter:'{d}%',fontSize:11},
       data:pie,itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2}}]
@@ -389,7 +423,7 @@ function renderTable(){
       return `<tr${deleteMode?' style="cursor:pointer" onclick="delRow('+gi+')" title="点击删除此行"':''}>
         <td>${start+i+1}</td>
         <td><span class="tag-ym">${fmtYm(r.y)}</span></td>
-        <td><span class="tag">${esc(r.s)}</span></td>
+        <td><span class="tag" title="${esc(r.s)}">${esc(shortName(r.s))}</span></td>
         <td title="${esc(r.c)}">${esc(shortHt(r.c))}</td>
         <td class="num amt">${fmtN(Number(r.a)||0)}</td>
         <td class="num">${r.n==null?'<span class="na">—</span>':fmtN(r.n)}</td>
@@ -461,7 +495,8 @@ function restoreInit(){
 }
 function addRecord(){
   const y=document.getElementById('aYm').value;
-  const s=document.getElementById('aSup').value.trim();
+  const sRaw=document.getElementById('aSup').value.trim();
+  const s=REV[sRaw]||sRaw;
   const a=parseFloat(document.getElementById('aAmt').value);
   const nv=document.getElementById('aNoTax').value;
   const n=nv===''?null:parseFloat(nv);
@@ -518,7 +553,8 @@ function importExcel(){
         const sheetYm=normYm(sn)||defYm;
         table.slice(1).forEach(row=>{
           const cell=k=> (k in pos) ? row[pos[k]] : '';
-          const s=String(cell('s')||'').trim();
+          let s=String(cell('s')||'').trim();
+          if(REV[s]) s=REV[s];   // 导入时把简称还原为全称，统一口径
           const aRaw=String(cell('a')==null?'':cell('a')).replace(/,/g,'').trim();
           if(!s&&!aRaw) return;
           if(/合计|总计|小计/.test(s)) return;
@@ -538,8 +574,8 @@ function importExcel(){
   rd.readAsArrayBuffer(f);
 }
 function sheetFrom(list){
-  const aoa=[['月份','供应商名称','合同编号','应付金额（原币）','应付金额（不含税）']];
-  list.forEach(r=>aoa.push([fmtYm(r.y),r.s,r.c,r.a,r.n==null?'':r.n]));
+  const aoa=[['月份','供应商（简称）','合同编号','应付金额（原币）','应付金额（不含税）']];
+  list.forEach(r=>aoa.push([fmtYm(r.y),shortName(r.s),r.c,r.a,r.n==null?'':r.n]));
   return XLSX.utils.aoa_to_sheet(aoa);
 }
 function download(list,name){
