@@ -161,6 +161,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
   </div>
 
   <div class="filter-bar">
+    <label>📆 年份</label>
+    <select id="fYear" onchange="onYearChange()"><option value="">全部年份</option></select>
     <label>📅 月份</label>
     <select id="fYm" onchange="applyFilter()"><option value="">全部月份</option></select>
     <label>🏢 供应商</label>
@@ -340,20 +342,31 @@ function shortName(s){
 }
 
 function buildFilterOptions(){
-  const yms=[...new Set(DATA.map(r=>r.y).filter(Boolean))].sort();
+  const years=[...new Set(DATA.map(r=>String(r.y||'').slice(0,4)).filter(Boolean))].sort();
   const sups=[...new Set(DATA.map(r=>r.s).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
-  const ySel=document.getElementById('fYm'), sSel=document.getElementById('fSup');
-  const yv=ySel.value, sv=sSel.value;
-  ySel.innerHTML='<option value="">全部月份</option>'+yms.map(y=>`<option value="${y}">${fmtYm(y)}</option>`).join('');
+  const yrSel=document.getElementById('fYear'), ySel=document.getElementById('fYm'), sSel=document.getElementById('fSup');
+  const yrV=yrSel.value, mv=ySel.value, sv=sSel.value;
+  yrSel.innerHTML='<option value="">全部年份</option>'+years.map(x=>`<option value="${x}">${x}年</option>`).join('');
+  const pool=yrV?DATA.filter(r=>String(r.y||'').startsWith(yrV)):DATA;
+  const months=[...new Set(pool.map(r=>parseInt(String(r.y||'').slice(5,7),10)).filter(m=>m>=1&&m<=12))].sort((a,b)=>a-b);
+  ySel.innerHTML='<option value="">全部月份</option>'+months.map(m=>`<option value="${m}">${m}月</option>`).join('');
   sSel.innerHTML='<option value="">全部供应商</option>'+sups.map(s=>`<option value="${esc(s)}">${esc(shortName(s))}</option>`).join('');
-  ySel.value=yv; sSel.value=sv;
+  yrSel.value=yrV;
+  ySel.value=months.includes(parseInt(mv,10))?mv:'';
+  sSel.value=sv;
+}
+function onYearChange(){
+  buildFilterOptions();   // 月份选项按所选年份重建，已选月份不属于该年时会自动清空
+  applyFilter();
 }
 function applyFilter(){
-  const y=document.getElementById('fYm').value;
+  const yr=document.getElementById('fYear').value;
+  const m=document.getElementById('fYm').value;
   const s=document.getElementById('fSup').value;
   const kw=document.getElementById('fKey').value.trim().toLowerCase();
   filtered=DATA.filter(r=>{
-    if(y&&r.y!==y) return false;
+    if(yr&&String(r.y||'').slice(0,4)!==yr) return false;
+    if(m&&parseInt(String(r.y||'').slice(5,7),10)!==parseInt(m,10)) return false;
     if(s&&r.s!==s) return false;
     if(kw){ const blob=((r.s||'')+' '+(r.c||'')).toLowerCase(); if(!blob.includes(kw)) return false; }
     return true;
@@ -386,7 +399,10 @@ function render(){
 }
 
 function renderCharts(){
-  const yms=[...new Set(DATA.map(r=>r.y).filter(Boolean))].sort();
+  const yrSel=document.getElementById('fYear');
+  const yr=yrSel?yrSel.value:'';
+  const allYms=[...new Set(DATA.map(r=>r.y).filter(Boolean))].sort();
+  const yms=yr?allYms.filter(y=>String(y).startsWith(yr)):allYms;
   const ag={}; yms.forEach(y=>ag[y]={a:0,n:0});
   filtered.forEach(r=>{ if(ag[r.y]){ ag[r.y].a+=Number(r.a)||0; ag[r.y].n+=Number(r.n)||0; } });
   if(!charts.bar) charts.bar=echarts.init(document.getElementById('chartBar'));
@@ -394,7 +410,7 @@ function renderCharts(){
     tooltip:{trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:v=>fmtN(v)+' 元'},
     legend:{data:['应付金额（原币）','应付金额（不含税）'],top:0,textStyle:{fontSize:12}},
     grid:{left:72,right:20,top:40,bottom:56},
-    xAxis:{type:'category',data:yms.map(fmtYm),axisLabel:{fontSize:11,rotate:38,interval:0}},
+    xAxis:{type:'category',data:yms.map(y=>yr?(parseInt(String(y).slice(5,7),10)+'月'):fmtYm(y)),axisLabel:{fontSize:11,rotate:38,interval:0}},
     yAxis:{type:'value',axisLabel:{formatter:v=>v>=10000?(v/10000)+'万':v}},
     series:[
       {name:'应付金额（原币）',type:'bar',data:yms.map(y=>+ag[y].a.toFixed(2)),barMaxWidth:22,itemStyle:{borderRadius:[5,5,0,0],color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#14b8a6'},{offset:1,color:'#0f766e'}])}},
@@ -451,6 +467,8 @@ function renderTable(){
 }
 function gotoPage(p){ page=p; renderTable(); window.scrollTo({top:document.body.scrollHeight*0.42,behavior:'smooth'}); }
 function resetFilter(){
+  document.getElementById('fYear').value='';
+  buildFilterOptions();
   document.getElementById('fYm').value='';
   document.getElementById('fSup').value='';
   document.getElementById('fKey').value='';
