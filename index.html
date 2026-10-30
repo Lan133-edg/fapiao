@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>发票信息汇总平台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb; --primary-dark:#1d4ed8; --bg:#f1f5f9;
+  --card:#ffffff; --text:#0f172a; --muted:#64748b; --border:#e2e8f0;
+  --success:#059669; --danger:#dc2626; --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ===== 顶部 ===== */
+.header{background:linear-gradient(135deg,#1e40af 0%,#2563eb 55%,#3b82f6 100%);color:#fff;padding:26px 32px;box-shadow:0 4px 18px rgba(37,99,235,.25)}
+.header-inner{max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:24px;font-weight:700;letter-spacing:1px;display:flex;align-items:center;gap:10px}
+.header h1 .logo{width:38px;height:38px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.header .sub{font-size:13px;opacity:.85;margin-top:4px}
+.btn{border:none;border-radius:10px;padding:10px 18px;font-size:14px;cursor:pointer;transition:.2s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn-admin{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.btn-admin:hover{background:rgba(255,255,255,.3)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-outline{background:#fff;color:var(--primary);border:1px solid var(--primary)}
+.btn-outline:hover{background:#eff6ff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-ghost{background:#f1f5f9;color:var(--muted)}
+.btn-ghost:hover{background:#e2e8f0}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:8px}
+
+/* ===== 主体 ===== */
+.main{max-width:1280px;margin:0 auto;padding:24px 32px 60px}
+
+/* 统计卡片 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 4px rgba(15,23,42,.06);border:1px solid var(--border);position:relative;overflow:hidden}
+.stat-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
+.stat-card.green::before{background:var(--success)}
+.stat-card.orange::before{background:#ea580c}
+.stat-card.purple::before{background:#7c3aed}
+.stat-label{font-size:13px;color:var(--muted);margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-value small{font-size:13px;font-weight:400;color:var(--muted);margin-left:3px}
+.stat-extra{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* 筛选区 */
+.filter-bar{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:22px;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+.filter-bar label{font-size:13px;color:var(--muted);white-space:nowrap}
+.filter-bar select,.filter-bar input{padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;background:#fff;color:var(--text);font-family:inherit;outline:none;transition:.2s}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.filter-bar input[type=text]{min-width:200px;flex:1}
+.filter-count{font-size:13px;color:var(--muted);margin-left:auto}
+.filter-count b{color:var(--primary);font-size:16px}
+
+/* 图表 */
+.charts{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;margin-bottom:22px}
+.chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:18px;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+.chart-title{font-size:15px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.chart-title::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--primary)}
+.chart-sub{font-size:12px;color:var(--muted);margin-bottom:8px}
+.chart-box{width:100%;height:320px}
+
+/* 表格 */
+.table-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 1px 4px rgba(15,23,42,.06);overflow:hidden}
+.table-head{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border)}
+.table-head h3{font-size:15px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:900px}
+thead th{background:#f8fafc;color:var(--muted);font-weight:600;text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:11px 14px;border-bottom:1px solid #f1f5f9;white-space:nowrap;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#f8fafc}
+tbody tr:last-child td{border-bottom:none}
+td.num{text-align:right}
+th.num{text-align:right}
+.amt{font-weight:600;color:var(--primary)}
+.tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;background:#eff6ff;color:var(--primary)}
+.tag-month{background:#f0fdf4;color:var(--success)}
+.empty-row td{text-align:center;color:var(--muted);padding:40px}
+.pager{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px}
+.pager .info{font-size:13px;color:var(--muted)}
+.pager .pages{display:flex;gap:6px}
+.pager button{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text)}
+.pager button:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+.pager button.cur{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+
+/* 弹窗 */
+.modal-mask{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:420px;padding:28px;animation:pop .2s ease}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h3{font-size:17px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.modal .desc{font-size:13px;color:var(--muted);margin-bottom:18px}
+.modal input[type=password],.modal input[type=text],.modal input[type=number],.modal select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:14px;font-family:inherit;outline:none}
+.modal input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end}
+.modal .err{color:var(--danger);font-size:13px;margin-bottom:10px;display:none}
+.modal.wide{max-width:860px;max-height:88vh;overflow-y:auto}
+.admin-section{border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}
+.admin-section h4{font-size:14px;margin-bottom:12px;color:var(--primary)}
+.admin-section .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.admin-section .field{display:flex;flex-direction:column;gap:5px}
+.admin-section .field label{font-size:12px;color:var(--muted)}
+.admin-section .field input,.admin-section .field select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;width:130px}
+.admin-section .field input:focus{border-color:var(--primary)}
+.hint{font-size:12px;color:var(--muted);line-height:1.7}
+.badge-admin{display:none;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:600}
+.badge-admin.on{display:inline-block}
+
+/* Toast */
+.toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-80px);background:#0f172a;color:#fff;padding:11px 22px;border-radius:10px;font-size:14px;z-index:200;transition:.3s;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.ok{background:var(--success)}
+.toast.err{background:var(--danger)}
+
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+
+@media (max-width:860px){
+  .charts{grid-template-columns:1fr}
+  .main{padding:16px}
+  .header{padding:20px 16px}
+  .filter-count{margin-left:0;width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <h1><span class="logo">🧾</span>发票信息汇总平台</h1>
+      <div class="sub">外协调度 · 2026 年发票下推数据统计（总装分厂）</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="badge-admin" id="adminBadge">管理员模式</span>
+      <button class="btn btn-admin" id="adminBtn" onclick="openAdminGate()">🔐 数据管理</button>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- 统计卡片 -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">发票总金额（含税）</div>
+      <div class="stat-value" id="stTotal">--<small>元</small></div>
+      <div class="stat-extra" id="stTotalAll">全部数据：--</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">当前筛选 · 发票张数</div>
+      <div class="stat-value" id="stCount">--<small>张</small></div>
+      <div class="stat-extra">全部数据：<span id="stCountAll">--</span> 张</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-label">当前筛选 · 税额合计</div>
+      <div class="stat-value" id="stTax">--<small>元</small></div>
+      <div class="stat-extra">平均单张：<span id="stAvg">--</span> 元</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">供应商数量</div>
+      <div class="stat-value" id="stSup">--<small>家</small></div>
+      <div class="stat-extra" id="stTopSup">--</div>
+    </div>
+  </div>
+
+  <!-- 筛选 -->
+  <div class="filter-bar">
+    <label>📅 月份</label>
+    <select id="fMonth" onchange="applyFilter()">
+      <option value="">全部月份</option>
+    </select>
+    <label>🏢 供应商</label>
+    <select id="fSup" onchange="applyFilter()">
+      <option value="">全部供应商</option>
+    </select>
+    <input type="text" id="fKey" placeholder="🔍 搜索合同号 / 单据号 / 供应商…" oninput="applyFilter()">
+    <button class="btn btn-ghost btn-sm" onclick="resetFilter()">重置</button>
+    <span class="filter-count">筛选结果：<b id="fCount">0</b> 条</span>
+  </div>
+
+  <!-- 图表 -->
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">各月开票金额统计</div>
+      <div class="chart-sub">柱状图为含税总金额，折线为开票张数</div>
+      <div class="chart-box" id="chartBar"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">供应商金额占比</div>
+      <div class="chart-sub">按含税总金额统计</div>
+      <div class="chart-box" id="chartPie"></div>
+    </div>
+  </div>
+
+  <!-- 明细表 -->
+  <div class="table-card">
+    <div class="table-head">
+      <h3>📋 发票明细</h3>
+      <button class="btn btn-outline btn-sm" onclick="exportFiltered()">⬇ 导出当前筛选 Excel</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>序号</th><th>供应商</th><th>合同号</th><th>开票单据</th><th>单据号</th>
+            <th class="num">金额</th><th class="num">税额</th><th class="num">总金额</th><th>下推时间</th>
+            <th id="thOp" style="display:none">操作</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="info" id="pageInfo"></span>
+      <div class="pages" id="pageBtns"></div>
+    </div>
+  </div>
+</div>
+
+<footer>发票信息汇总平台 · 数据仅保存在本浏览器中 · 管理员可批量导入 / 编辑 / 导出</footer>
+
+<!-- 管理员密码弹窗 -->
+<div class="modal-mask" id="gateMask">
+  <div class="modal">
+    <h3>🔐 管理员验证</h3>
+    <div class="desc">数据管理仅限管理员操作，请输入管理密码。</div>
+    <input type="password" id="pwdInput" placeholder="请输入管理密码" onkeydown="if(event.key==='Enter')tryLogin()">
+    <div class="err" id="pwdErr">❌ 密码错误，请重试</div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeModal('gateMask')">取消</button>
+      <button class="btn btn-primary" onclick="tryLogin()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 数据管理面板 -->
+<div class="modal-mask" id="adminMask">
+  <div class="modal wide">
+    <h3>🛠 数据管理 <span class="badge-admin on">管理员模式</span></h3>
+    <div class="desc">所有修改立即保存在当前浏览器中；如需让他人看到新数据，请导出 Excel 后重新导入或更新网页内置数据。</div>
+
+    <div class="admin-section">
+      <h4>➕ 添加单条发票记录</h4>
+      <div class="row">
+        <div class="field"><label>供应商</label><input type="text" id="aSup" placeholder="如：恒顺通"></div>
+        <div class="field"><label>合同号</label><input type="text" id="aHt"></div>
+        <div class="field"><label>开票单据</label><input type="text" id="aKp"></div>
+        <div class="field"><label>单据号</label><input type="text" id="aDj"></div>
+        <div class="field"><label>金额</label><input type="number" id="aJe" step="0.01"></div>
+        <div class="field"><label>税额</label><input type="number" id="aSe" step="0.01"></div>
+        <div class="field"><label>下推时间</label><input type="text" id="aT" placeholder="如 10.22"></div>
+        <button class="btn btn-primary btn-sm" onclick="addRecord()">添加</button>
+      </div>
+      <div class="hint" style="margin-top:8px">总金额 = 金额 + 税额，自动计算。</div>
+    </div>
+
+    <div class="admin-section">
+      <h4>📥 批量导入 Excel / CSV</h4>
+      <div class="row">
+        <div class="field">
+          <label>导入方式</label>
+          <select id="impMode"><option value="append">追加（保留现有数据）</option><option value="replace">覆盖（清空后导入）</option></select>
+        </div>
+        <div class="field"><label>选择文件</label><input type="file" id="impFile" accept=".xlsx,.xls,.csv" style="width:auto"></div>
+        <button class="btn btn-primary btn-sm" onclick="importExcel()">开始导入</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">⬇ 下载导入模板</button>
+      </div>
+      <div class="hint" style="margin-top:8px">表头需包含：供应商、合同号、开票单据、单据号、金额、税额、总金额(可自动算)、下推时间。下推时间格式如 1.15（1月15日）。</div>
+    </div>
+
+    <div class="admin-section">
+      <h4>🗑 删除数据</h4>
+      <div class="row">
+        <button class="btn btn-outline btn-sm" onclick="toggleDeleteMode()" id="delModeBtn">开启删除模式（明细表中选择删除）</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAll()">⚠ 清空全部数据</button>
+        <button class="btn btn-ghost btn-sm" onclick="restoreInit()">恢复网页内置数据</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h4>📤 导出</h4>
+      <div class="row">
+        <button class="btn btn-primary btn-sm" onclick="exportAll()">导出全部数据 Excel</button>
+        <button class="btn btn-ghost btn-sm" onclick="logoutAdmin()">退出管理员模式</button>
+      </div>
+    </div>
+
+    <div class="actions"><button class="btn btn-ghost" onclick="closeModal('adminMask')">关闭面板</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 初始数据（由 Excel 导入生成） ================= */
+const INIT_DATA = [{"xh":1,"gys":"恒顺通","ht":"6200054222","kp":"2000503553","dj":"1000486367","je":860,"se":111.8,"t":"1.15"},{"xh":2,"gys":"恒顺通","ht":"6200054228","kp":"2000503575","dj":"1000486368","je":2895,"se":376.35,"t":"1.15"},{"xh":3,"gys":"恒顺通","ht":"6200060096","kp":"2000503578","dj":"1000486369","je":11444,"se":1487.72,"t":"1.15"},{"xh":4,"gys":"恒顺通","ht":"6200061271","kp":"2000503581","dj":"1000486380","je":119468,"se":15530.84,"t":"1.15"},{"xh":5,"gys":"恒顺通","ht":"6200053342","kp":"2000503585","dj":"1000486381","je":5070,"se":659.1,"t":"1.15"},{"xh":6,"gys":"恒顺通","ht":"6200053108","kp":"2000503588","dj":"1000486382","je":7103.6,"se":923.46,"t":"1.15"},{"xh":7,"gys":"恒顺通","ht":"6200053280","kp":"2000503593","dj":"1000486387","je":2025,"se":263.25,"t":"1.15"},{"xh":8,"gys":"恒顺通","ht":"6200054766","kp":"2000503670","dj":"1000486390","je":49717,"se":6463.21,"t":"1.15"},{"xh":9,"gys":"恒顺通","ht":"6200054230","kp":"2000503675","dj":"1000486393","je":275,"se":35.75,"t":"1.15"},{"xh":10,"gys":"恒顺通","ht":"6200054234","kp":"2000503680","dj":"1000486394","je":4825,"se":627.25,"t":"1.15"},{"xh":11,"gys":"恒顺通","ht":"6200060607","kp":"2000503685","dj":"1000486397","je":104180,"se":13543.4,"t":"1.15"},{"xh":12,"gys":"恒顺通","ht":"6200060094","kp":"2000503710","dj":"1000486402","je":61012,"se":7931.56,"t":"1.15"},{"xh":13,"gys":"恒顺通","ht":"6200053109","kp":"2000503720","dj":"1000486404","je":7745,"se":1006.85,"t":"1.15"},{"xh":14,"gys":"恒顺通","ht":"6200053104","kp":"2000503926","dj":"1000486508","je":34638,"se":4502.94,"t":"1.15"},{"xh":15,"gys":"恒顺通","ht":"6200060099","kp":"2000503927","dj":"1000486509","je":59517,"se":7737.21,"t":"1.15"},{"xh":16,"gys":"恒顺通","ht":"6200058497","kp":"2000503928","dj":"1000486511","je":64980,"se":8447.4,"t":"1.15"},{"xh":17,"gys":"恒顺通","ht":"6200060012","kp":"2000503929","dj":"1000486512","je":129650,"se":16854.5,"t":"1.15"},{"xh":18,"gys":"恒顺通","ht":"6200054229","kp":"2000503930","dj":"1000486514","je":1823,"se":236.99,"t":"1.15"},{"xh":19,"gys":"恒顺通","ht":"6200054233","kp":"2000503934","dj":"1000486531","je":9650,"se":1254.5,"t":"1.15"},{"xh":20,"gys":"恒顺通","ht":"6200054196","kp":"2000503959","dj":"1000486546","je":82954,"se":10784.02,"t":"1.15"},{"xh":21,"gys":"恒顺通","ht":"6200061930","kp":"2000503961","dj":"1000486549","je":214986,"se":27948.18,"t":"1.15"},{"xh":22,"gys":"恒顺通","ht":"6200053341","kp":"2000503990","dj":"1000486603","je":8620,"se":1120.6,"t":"1.15"},{"xh":23,"gys":"恒顺通","ht":"6200056201","kp":"2000504017","dj":"1000486608","je":116654,"se":15165.02,"t":"1.15"},{"xh":24,"gys":"恒顺通","ht":"6200053106","kp":"2000504018","dj":"1000486620","je":13304,"se":1729.52,"t":"1.15"},{"xh":25,"gys":"恒顺通","ht":"6200061932","kp":"2000504021","dj":"1000486621","je":696848.2,"se":90590.27,"t":"1.15"},{"xh":26,"gys":"恒顺通","ht":"6200061929","kp":"2000504025","dj":"1000486622","je":963198.9,"se":125215.86,"t":"1.15"},{"xh":27,"gys":"恒顺通","ht":"6200058727","kp":"2000504029","dj":"1000486624","je":86490,"se":11243.7,"t":"1.15"},{"xh":28,"gys":"鑫汇通","ht":"6200060016","kp":"2000504055","dj":"1000486629","je":5980,"se":777.4,"t":"1.15"},{"xh":29,"gys":"鑫汇通","ht":"6200056828","kp":"2000504060","dj":"1000486640","je":11960,"se":1554.8,"t":"1.15"},{"xh":30,"gys":"鑫汇通","ht":"6200056829","kp":"2000504066","dj":"1000486641","je":10858,"se":1411.54,"t":"1.15"},{"xh":31,"gys":"鑫汇通","ht":"6200056830","kp":"2000504074","dj":"1000486642","je":6960,"se":904.8,"t":"1.15"},{"xh":32,"gys":"济南同工","ht":"6200063779","kp":"2000504080","dj":"1000486644","je":20938,"se":2721.94,"t":"1.15"},{"xh":33,"gys":"济南同工","ht":"6200061916","kp":"2000504085","dj":"1000486645","je":249592,"se":32446.96,"t":"1.15"},{"xh":34,"gys":"济南同工","ht":"6200063778","kp":"2000504103","dj":"1000486647","je":369704,"se":48061.52,"t":"1.15"},{"xh":35,"gys":"通运鑫","ht":"6200059824","kp":"2000504579","dj":"1000487334","je":71060.22,"se":9237.83,"t":"1.16"},{"xh":36,"gys":"通运鑫","ht":"6200058509","kp":"2000504581","dj":"1000487336","je":101514.6,"se":13196.9,"t":"1.16"},{"xh":37,"gys":"通运鑫","ht":"6200059825","kp":"2000504583","dj":"1000487339","je":106590.33,"se":13856.74,"t":"1.16"},{"xh":38,"gys":"通运鑫","ht":"6200065252","kp":"2000504585","dj":"1000487370","je":243594.4,"se":31667.27,"t":"1.16"},{"xh":39,"gys":"通运鑫","ht":"6200065251","kp":"2000504596","dj":"1000487372","je":267971.2,"se":34836.26,"t":"1.16"},{"xh":40,"gys":"通运鑫","ht":"6200065250","kp":"2000504597","dj":"1000487373","je":273713.44,"se":35582.75,"t":"1.16"},{"xh":41,"gys":"通运鑫","ht":"6200065021","kp":"2000504598","dj":"1000487374","je":278985.8,"se":36268.15,"t":"1.16"},{"xh":42,"gys":"通运鑫","ht":"6200065254","kp":"2000504600","dj":"1000487375","je":282497.7,"se":36724.7,"t":"1.16"},{"xh":43,"gys":"通运鑫","ht":"6200065249","kp":"2000504602","dj":"1000487377","je":284240.88,"se":36951.31,"t":"1.16"},{"xh":44,"gys":"通运鑫","ht":"6200065253","kp":"2000504604","dj":"1000487390","je":268441.4,"se":34897.38,"t":"1.16"},{"xh":45,"gys":"领晟","ht":"6200063878","kp":"2000504805","dj":"1000487931","je":421753.18,"se":54827.92,"t":"1.17"},{"xh":46,"gys":"领晟","ht":"6200064674","kp":"2000504826","dj":"1000487932","je":140321.43,"se":18241.79,"t":"1.17"},{"xh":47,"gys":"领晟","ht":"6200054011","kp":"2000504827","dj":"1000487933","je":1007810.86,"se":131015.42,"t":"1.17"},{"xh":48,"gys":"领晟","ht":"6200057178","kp":"2000504828","dj":"1000487934","je":417343.26,"se":54254.61,"t":"1.17"},{"xh":49,"gys":"恒顺通","ht":"6200053258","kp":"2000508824","dj":"1000492105","je":39627,"se":5151.51,"t":"3.17"},{"xh":50,"gys":"恒顺通","ht":"6200055985","kp":"2000508825","dj":"1000492106","je":24200,"se":3146,"t":"3.17"},{"xh":51,"gys":"恒顺通","ht":"6200053261","kp":"2000508846","dj":"1000492107","je":54974,"se":7146.62,"t":"3.17"},{"xh":52,"gys":"恒顺通","ht":"6200055998","kp":"2000508847","dj":"1000492108","je":3204,"se":416.52,"t":"3.17"},{"xh":53,"gys":"恒顺通","ht":"6200057108","kp":"2000508848","dj":"1000492109","je":31760,"se":4128.8,"t":"3.17"},{"xh":54,"gys":"恒顺通","ht":"6200057236","kp":"2000508849","dj":"1000492110","je":11300,"se":1469,"t":"3.17"},{"xh":55,"gys":"恒顺通","ht":"6200058722","kp":"2000508850","dj":"1000492111","je":14976,"se":1946.88,"t":"3.17"},{"xh":56,"gys":"恒顺通","ht":"6200058804","kp":"2000508851","dj":"1000492112","je":145098,"se":18862.74,"t":"3.17"},{"xh":57,"gys":"恒顺通","ht":"6200058871","kp":"2000508852","dj":"1000492113","je":27742,"se":3606.46,"t":"3.17"},{"xh":58,"gys":"恒顺通","ht":"6200061923","kp":"2000508853","dj":"1000492114","je":25272,"se":3285.36,"t":"3.17"},{"xh":59,"gys":"恒顺通","ht":"6200063788","kp":"2000508854","dj":"1000492115","je":142561,"se":18532.93,"t":"3.17"},{"xh":60,"gys":"恒顺通","ht":"6200063786","kp":"2000508855","dj":"1000492116","je":384160,"se":49940.8,"t":"3.17"},{"xh":61,"gys":"恒顺通","ht":"6200062525","kp":"2000508876","dj":"1000492117","je":440667,"se":57286.71,"t":"3.17"},{"xh":62,"gys":"恒顺通","ht":"6200062524","kp":"2000508877","dj":"1000492118","je":253668.5,"se":32976.91,"t":"3.17"},{"xh":63,"gys":"恒顺通","ht":"6200062415","kp":"2000508878","dj":"1000492119","je":814500,"se":105885,"t":"3.17"},{"xh":64,"gys":"恒顺通","ht":"6200062421","kp":"2000508879","dj":"1000492120","je":106418,"se":13834.34,"t":"3.17"},{"xh":65,"gys":"恒顺通","ht":"6200062424","kp":"2000508880","dj":"1000492121","je":357579.2,"se":46485.31,"t":"3.17"},{"xh":66,"gys":"恒顺通","ht":"6200061921","kp":"2000508881","dj":"1000492122","je":150,"se":19.5,"t":"3.17"},{"xh":67,"gys":"恒顺通","ht":"6200061922","kp":"2000508882","dj":"1000492123","je":96040,"se":12485.2,"t":"3.17"},{"xh":68,"gys":"恒顺通","ht":"6200061924","kp":"2000508883","dj":"1000492124","je":68524.5,"se":8908.17,"t":"3.17"},{"xh":69,"gys":"恒顺通","ht":"6200061925","kp":"2000508884","dj":"1000492125","je":52350,"se":6805.5,"t":"3.17"},{"xh":70,"gys":"恒顺通","ht":"6200058906","kp":"2000508885","dj":"1000492126","je":24480,"se":3182.4,"t":"3.17"},{"xh":71,"gys":"恒顺通","ht":"6200058801","kp":"2000508886","dj":"1000492127","je":13748,"se":1787.24,"t":"3.17"},{"xh":72,"gys":"恒顺通","ht":"6200058802","kp":"2000508887","dj":"1000492128","je":61208,"se":7957.04,"t":"3.17"},{"xh":73,"gys":"恒顺通","ht":"6200058803","kp":"2000509060","dj":"1000492475","je":5084,"se":660.92,"t":"3.17"},{"xh":74,"gys":"恒顺通","ht":"6200058500","kp":"2000509061","dj":"1000492476","je":83947,"se":10913.11,"t":"3.17"},{"xh":75,"gys":"恒顺通","ht":"6200057301","kp":"2000509062","dj":"1000492477","je":13312,"se":1730.56,"t":"3.17"},{"xh":76,"gys":"恒顺通","ht":"6200057161","kp":"2000509063","dj":"1000492478","je":13522,"se":1757.86,"t":"3.17"},{"xh":77,"gys":"恒顺通","ht":"6200057165","kp":"2000509064","dj":"1000492479","je":32490,"se":4223.7,"t":"3.17"},{"xh":78,"gys":"恒顺通","ht":"6200057166","kp":"2000509065","dj":"1000492480","je":15700.6,"se":2041.08,"t":"3.17"},{"xh":79,"gys":"恒顺通","ht":"6200057169","kp":"2000509066","dj":"1000492481","je":73494.2,"se":9554.25,"t":"3.17"},{"xh":80,"gys":"恒顺通","ht":"6200056973","kp":"2000509067","dj":"1000492482","je":5619.78,"se":730.57,"t":"3.17"},{"xh":81,"gys":"恒顺通","ht":"6200056203","kp":"2000509068","dj":"1000492487","je":931,"se":121.03,"t":"3.17"},{"xh":82,"gys":"恒顺通","ht":"6200055997","kp":"2000509069","dj":"1000492489","je":5243,"se":681.6,"t":"3.17"},{"xh":83,"gys":"恒顺通","ht":"6200055987","kp":"2000509070","dj":"1000492491","je":120,"se":15.6,"t":"3.17"},{"xh":84,"gys":"恒顺通","ht":"6200054235","kp":"2000509072","dj":"1000492527","je":910,"se":118.3,"t":"3.17"},{"xh":85,"gys":"鑫汇通","ht":"6300028322","kp":"2000509073","dj":"1000492528","je":10858,"se":1411.54,"t":"3.17"},{"xh":86,"gys":"济南同工","ht":"6200065401","kp":"2000509667","dj":"1000493341","je":12538,"se":1629.94,"t":"3.17"},{"xh":87,"gys":"济南同工","ht":"6200065400","kp":"2000509668","dj":"1000493342","je":45021,"se":5852.73,"t":"3.17"},{"xh":88,"gys":"济南同工","ht":"6200065399","kp":"2000509669","dj":"1000493343","je":125996,"se":16379.48,"t":"3.17"},{"xh":89,"gys":"济南同工","ht":"6200065850","kp":"2000509670","dj":"1000493344","je":8801,"se":1144.13,"t":"3.17"},{"xh":90,"gys":"济南同工","ht":"6300028282","kp":"2000509671","dj":"1000493345","je":10858,"se":1411.54,"t":"3.17"},{"xh":91,"gys":"济南同工","ht":"6300030386","kp":"2000509672","dj":"1000493346","je":10858,"se":1411.54,"t":"3.17"},{"xh":92,"gys":"济南同工","ht":"6200065402","kp":"2000509673","dj":"1000493347","je":5880,"se":764.4,"t":"3.17"},{"xh":93,"gys":"济南同工","ht":"6300031761","kp":"2000510245","dj":"1000494007","je":10858,"se":1411.54,"t":"3.20"},{"xh":94,"gys":"金凯","ht":"6200053277","kp":"2000510256","dj":"1000494013","je":73255,"se":9523.15,"t":"3.20"},{"xh":95,"gys":"广冷华旭","ht":"6300024955","kp":"2000510310","dj":"1000494047","je":205000,"se":26650,"t":"3.21"},{"xh":96,"gys":"通运鑫","ht":"6200067257","kp":"2000511883","dj":"1000496061","je":45527.76,"se":5918.61,"t":"4.2"},{"xh":97,"gys":"通运鑫","ht":"6200067258","kp":"2000511884","dj":"1000496062","je":55645.04,"se":7233.86,"t":"4.2"},{"xh":98,"gys":"通运鑫","ht":"6200067259","kp":"2000511885","dj":"1000496063","je":70820.96,"se":9206.72,"t":"4.2"},{"xh":99,"gys":"通运鑫","ht":"6200067260","kp":"2000511926","dj":"1000496064","je":41221.08,"se":5358.74,"t":"4.2"},{"xh":100,"gys":"通运鑫","ht":"6200067261","kp":"2000511927","dj":"1000496065","je":50381.32,"se":6549.57,"t":"4.2"},{"xh":101,"gys":"通运鑫","ht":"6200067263","kp":"2000511928","dj":"1000496066","je":39990.6,"se":5198.78,"t":"4.2"},{"xh":102,"gys":"通运鑫","ht":"6200067264","kp":"2000511929","dj":"1000496067","je":48877.4,"se":6354.06,"t":"4.2"},{"xh":103,"gys":"通运鑫","ht":"6200067265","kp":"2000511930","dj":"1000496068","je":62207.6,"se":8086.99,"t":"4.2"},{"xh":104,"gys":"通运鑫","ht":"6200067266","kp":"2000511931","dj":"1000496069","je":45373.95,"se":5898.61,"t":"4.2"},{"xh":105,"gys":"通运鑫","ht":"6200067267","kp":"2000511932","dj":"1000496070","je":55457.05,"se":7209.42,"t":"4.2"},{"xh":106,"gys":"通运鑫","ht":"6200067268","kp":"2000511933","dj":"1000496071","je":70581.7,"se":9175.62,"t":"4.2"},{"xh":107,"gys":"通运鑫","ht":"6200067269","kp":"2000511934","dj":"1000496072","je":58154.67,"se":7560.11,"t":"4.2"},{"xh":108,"gys":"通运鑫","ht":"6200067270","kp":"2000511936","dj":"1000496073","je":71077.93,"se":9240.13,"t":"4.2"},{"xh":109,"gys":"通运鑫","ht":"6200067271","kp":"2000511938","dj":"1000496074","je":90462.82,"se":11760.17,"t":"4.2"},{"xh":110,"gys":"通运鑫","ht":"6200067262","kp":"2000511940","dj":"1000496077","je":64121.68,"se":8335.82,"t":"4.2"},{"xh":111,"gys":"永森源","ht":"6200066516","kp":"2000511953","dj":"1000496078","je":910443,"se":118357.59,"t":"4.2"},{"xh":112,"gys":"永森源","ht":"6200066515","kp":"2000511955","dj":"1000496079","je":3217543,"se":418280.59,"t":"4.2"},{"xh":113,"gys":"永森源","ht":"6200066514","kp":"2000511956","dj":"1000496080","je":1368432,"se":177896.16,"t":"4.2"},{"xh":114,"gys":"永森源","ht":"6200066512","kp":"2000511957","dj":"1000496081","je":1221258,"se":158763.54,"t":"4.2"},{"xh":115,"gys":"永森源","ht":"6200066513","kp":"2000511958","dj":"1000496082","je":4382324,"se":569702.12,"t":"4.2"},{"xh":116,"gys":"通运鑫","ht":"6200065812","kp":"2000514943","dj":"1000498188","je":249514,"se":32436.82,"t":"4.20"},{"xh":117,"gys":"通运鑫","ht":"6200065806","kp":"2000514947","dj":"1000498190","je":202345.6,"se":26304.93,"t":"4.20"},{"xh":118,"gys":"恒顺通","ht":"6200062521","kp":"2000515529","dj":"1000498844","je":21490,"se":2793.7,"t":"4.20"},{"xh":119,"gys":"恒顺通","ht":"6200062522","kp":"2000515531","dj":"1000498847","je":60184,"se":7823.92,"t":"4.20"},{"xh":120,"gys":"恒顺通","ht":"6200062417","kp":"2000515533","dj":"1000498886","je":51255,"se":6663.15,"t":"4.20"},{"xh":121,"gys":"恒顺通","ht":"6200054764","kp":"2000515535","dj":"1000498889","je":70,"se":9.1,"t":"4.20"},{"xh":122,"gys":"恒顺通","ht":"6200061208","kp":"2000515538","dj":"1000498893","je":14800,"se":1924,"t":"4.20"},{"xh":123,"gys":"恒顺通","ht":"6200062520","kp":"2000515541","dj":"1000498897","je":1284,"se":166.92,"t":"4.20"},{"xh":124,"gys":"恒顺通","ht":"6200060611","kp":"2000515544","dj":"1000498902","je":200760,"se":26098.8,"t":"4.20"},{"xh":125,"gys":"恒顺通","ht":"6200062523","kp":"2000515545","dj":"1000498906","je":89700,"se":11661,"t":"4.20"},{"xh":126,"gys":"恒顺通","ht":"6200062412","kp":"2000515559","dj":"1000498910","je":33435.5,"se":4346.61,"t":"4.20"},{"xh":127,"gys":"恒顺通","ht":"6200062413","kp":"2000515560","dj":"1000498914","je":6517,"se":847.21,"t":"4.20"},{"xh":128,"gys":"恒顺通","ht":"6200062414","kp":"2000515561","dj":"1000498916","je":46107,"se":5993.91,"t":"4.20"},{"xh":129,"gys":"恒顺通","ht":"6200062416","kp":"2000515563","dj":"1000498918","je":96040,"se":12485.2,"t":"4.20"},{"xh":130,"gys":"恒顺通","ht":"6200063874","kp":"2000515565","dj":"1000498922","je":329628,"se":42851.64,"t":"4.20"},{"xh":131,"gys":"恒顺通","ht":"6200064058","kp":"2000515566","dj":"1000498925","je":2232,"se":290.16,"t":"4.20"},{"xh":132,"gys":"恒顺通","ht":"6200064062","kp":"2000515568","dj":"1000498929","je":418529,"se":54408.78,"t":"4.20"},{"xh":133,"gys":"恒顺通","ht":"6200064063","kp":"2000515570","dj":"1000498931","je":128368,"se":16687.84,"t":"4.20"},{"xh":134,"gys":"恒顺通","ht":"6200061919","kp":"2000515571","dj":"1000498935","je":30738,"se":3995.94,"t":"4.20"},{"xh":135,"gys":"恒顺通","ht":"6200063789","kp":"2000515572","dj":"1000498938","je":258460,"se":33599.8,"t":"4.20"},{"xh":136,"gys":"恒顺通","ht":"6200061207","kp":"2000515575","dj":"1000498940","je":14289,"se":1857.57,"t":"4.20"},{"xh":137,"gys":"恒顺通","ht":"6200061931","kp":"2000515577","dj":"1000498946","je":171476,"se":22291.88,"t":"4.20"},{"xh":138,"gys":"恒顺通","ht":"6200061918","kp":"2000515578","dj":"1000498954","je":7746,"se":1006.98,"t":"4.20"},{"xh":139,"gys":"恒顺通","ht":"6200062420","kp":"2000515597","dj":"1000498989","je":51474,"se":6691.62,"t":"4.20"},{"xh":140,"gys":"恒顺通","ht":"6200063875","kp":"2000515598","dj":"1000498990","je":20204,"se":2626.52,"t":"4.20"},{"xh":141,"gys":"恒顺通","ht":"6200061210","kp":"2000515599","dj":"1000498992","je":68118,"se":8855.34,"t":"4.20"},{"xh":142,"gys":"恒顺通","ht":"6200063790","kp":"2000515601","dj":"1000498996","je":155268,"se":20184.84,"t":"4.20"},{"xh":143,"gys":"恒顺通","ht":"6200054221","kp":"2000515602","dj":"1000498998","je":4300,"se":559,"t":"4.20"},{"xh":144,"gys":"恒顺通","ht":"6200054194","kp":"2000515603","dj":"1000498999","je":1330,"se":172.9,"t":"4.20"},{"xh":145,"gys":"恒顺通","ht":"6200057167","kp":"2000515604","dj":"1000499000","je":280,"se":36.4,"t":"4.20"},{"xh":146,"gys":"恒顺通","ht":"6200060608","kp":"2000515689","dj":"1000499101","je":7756,"se":1008.28,"t":"4.20"},{"xh":147,"gys":"恒顺通","ht":"6200061211","kp":"2000515690","dj":"1000499106","je":40776,"se":5300.88,"t":"4.20"},{"xh":148,"gys":"恒顺通","ht":"6200061209","kp":"2000515717","dj":"1000499187","je":11444,"se":1487.72,"t":"4.20"},{"xh":149,"gys":"恒顺通","ht":"6200061272","kp":"2000515731","dj":"1000499241","je":1092,"se":141.96,"t":"4.20"},{"xh":150,"gys":"恒顺通","ht":"6200056972","kp":"2000515734","dj":"1000499242","je":115622,"se":15030.86,"t":"4.20"},{"xh":151,"gys":"恒顺通","ht":"6200061928","kp":"2000515736","dj":"1000499243","je":135266,"se":17584.58,"t":"4.20"},{"xh":152,"gys":"恒顺通","ht":"6200061920","kp":"2000515738","dj":"1000499244","je":4020,"se":522.6,"t":"4.20"},{"xh":153,"gys":"恒顺通","ht":"6200061927","kp":"2000515743","dj":"1000499246","je":10983,"se":1427.81,"t":"4.20"},{"xh":154,"gys":"恒顺通","ht":"6200062422","kp":"2000515756","dj":"1000499247","je":341809,"se":44435.17,"t":"4.20"},{"xh":155,"gys":"恒顺通","ht":"6200059752","kp":"2000515760","dj":"1000499270","je":246942,"se":32102.46,"t":"4.20"},{"xh":156,"gys":"恒顺通","ht":"6200060610","kp":"2000515761","dj":"1000499271","je":13200,"se":1716,"t":"4.20"},{"xh":157,"gys":"恒顺通","ht":"6200058662","kp":"2000515763","dj":"1000499272","je":191577.75,"se":24905.13,"t":"4.20"},{"xh":158,"gys":"恒顺通","ht":"6200063785","kp":"2000515764","dj":"1000499273","je":96128.4,"se":12496.69,"t":"4.20"},{"xh":159,"gys":"恒顺通","ht":"6200063781","kp":"2000515790","dj":"1000499276","je":1670350,"se":217145.51,"t":"4.20"},{"xh":160,"gys":"恒顺通","ht":"6200057107","kp":"2000515797","dj":"1000499278","je":90885,"se":11815.05,"t":"4.20"},{"xh":161,"gys":"恒顺通","ht":"6200045130","kp":"2000515798","dj":"1000499290","je":7378,"se":959.14,"t":"4.20"},{"xh":162,"gys":"恒顺通","ht":"6300031662","kp":"2000516005","dj":"1000499676","je":26185.2,"se":3404.08,"t":"4.20"},{"xh":163,"gys":"恒顺通","ht":"6300028324","kp":"2000516018","dj":"1000499701","je":5370,"se":698.1,"t":"4.20"},{"xh":164,"gys":"恒顺通","ht":"6300028326","kp":"2000516021","dj":"1000499702","je":8728.4,"se":1134.69,"t":"4.20"},{"xh":165,"gys":"恒顺通","ht":"6300030124","kp":"None","dj":"1000499725","je":216,"se":28.08,"t":"4.20"},{"xh":166,"gys":"恒顺通","ht":"6300031663","kp":"2000516445","dj":"1000500111","je":75773,"se":9850.49,"t":"4.20"},{"xh":167,"gys":"恒顺通","ht":"6300031665","kp":"2000516446","dj":"1000500112","je":20388,"se":2650.44,"t":"4.20"},{"xh":168,"gys":"恒顺通","ht":"6300031666","kp":"2000516447","dj":"1000500113","je":11172,"se":1452.36,"t":"4.20"},{"xh":169,"gys":"恒顺通","ht":"6300028325","kp":"2000516448","dj":"1000500114","je":10194,"se":1325.22,"t":"4.20"},{"xh":170,"gys":"恒顺通","ht":"6300028327","kp":"2000516449","dj":"1000500115","je":13592,"se":1766.96,"t":"4.20"},{"xh":171,"gys":"恒顺通","ht":"6300030085","kp":"2000516450","dj":"1000500116","je":2803,"se":364.39,"t":"4.20"},{"xh":172,"gys":"恒顺通","ht":"6300030313","kp":"2000516451","dj":"1000500117","je":16395,"se":2131.35,"t":"4.20"},{"xh":173,"gys":"恒顺通","ht":"6200063782","kp":"2000516452","dj":"1000500118","je":761458.84,"se":98989.68,"t":"4.20"},{"xh":174,"gys":"通运鑫","ht":"6200067730","kp":"2000516464","dj":"1000500123","je":385550.4,"se":50121.55,"t":"4.20"},{"xh":175,"gys":"恒顺通","ht":"6300030312","kp":"2000516026","dj":"1000500125","je":5586,"se":726.18,"t":"4.20"},{"xh":176,"gys":"通运鑫","ht":"6200069320","kp":"2000518392","dj":"1000503597","je":166935.12,"se":21701.57,"t":"5.6"},{"xh":177,"gys":"通运鑫","ht":"6200069319","kp":"2000518400","dj":"1000503596","je":40469.12,"se":5260.99,"t":"5.6"},{"xh":178,"gys":"通运鑫","ht":"6200069318","kp":"2000518401","dj":"1000503595","je":241635.48,"se":31412.62,"t":"5.6"},{"xh":179,"gys":"通运鑫","ht":"6200069323","kp":"2000518404","dj":"1000503594","je":40405.36,"se":5252.7,"t":"5.6"},{"xh":180,"gys":"通运鑫","ht":"6200069324","kp":"2000518405","dj":"1000503593","je":166672.11,"se":21667.37,"t":"5.6"},{"xh":181,"gys":"通运鑫","ht":"6200069325","kp":"2000518406","dj":"1000503592","je":40405.36,"se":5252.7,"t":"5.6"},{"xh":182,"gys":"通运鑫","ht":"6200069321","kp":"2000518407","dj":"1000503591","je":40469.12,"se":5260.99,"t":"5.6"},{"xh":183,"gys":"通运鑫","ht":"6200069327","kp":"2000518410","dj":"1000503589","je":36640.96,"se":4763.32,"t":"5.6"},{"xh":184,"gys":"通运鑫","ht":"6200069328","kp":"2000518412","dj":"1000503588","je":151143.96,"se":19648.71,"t":"5.6"},{"xh":185,"gys":"通运鑫","ht":"6200069329","kp":"2000518414","dj":"1000503587","je":36640.96,"se":4763.32,"t":"5.6"},{"xh":186,"gys":"通运鑫","ht":"6200069330","kp":"2000518415","dj":"1000507864","je":40332.4,"se":5243.21,"t":"5.6"},{"xh":187,"gys":"通运鑫","ht":"6200069331","kp":"2000518416","dj":"1000503585","je":166371.15,"se":21628.25,"t":"5.6"},{"xh":188,"gys":"通运鑫","ht":"6200069332","kp":"2000518417","dj":"1000503584","je":40332.4,"se":5243.21,"t":"5.6"},{"xh":189,"gys":"通运鑫","ht":"6200069470","kp":"2000518418","dj":"1000503583","je":80951.84,"se":10523.74,"t":"5.6"},{"xh":190,"gys":"通运鑫","ht":"6200069471","kp":"2000518419","dj":"1000503582","je":161903.68,"se":21047.47,"t":"5.6"},{"xh":191,"gys":"通运鑫","ht":"6200069472","kp":"2000518420","dj":"1000503581","je":40475.92,"se":5261.87,"t":"5.6"},{"xh":192,"gys":"通运鑫","ht":"6200069473","kp":"2000518421","dj":"1000503580","je":81074.96,"se":10539.75,"t":"5.6"},{"xh":193,"gys":"通运鑫","ht":"6200069474","kp":"2000518422","dj":"1000503579","je":162149.92,"se":21079.49,"t":"5.6"},{"xh":194,"gys":"通运鑫","ht":"6200069475","kp":"2000518423","dj":"1000503578","je":40537.48,"se":5269.87,"t":"5.6"},{"xh":195,"gys":"通运鑫","ht":"6200065808","kp":"2000518424","dj":"1000503577","je":201662,"se":26216.06,"t":"5.6"},{"xh":196,"gys":"通运鑫","ht":"6200067706","kp":"2000518971","dj":"1000503576","je":220030.65,"se":28603.98,"t":"5.9"},{"xh":197,"gys":"通运鑫","ht":"6200067711","kp":"2000518989","dj":"1000503575","je":233090.51,"se":30301.76,"t":"5.9"},{"xh":198,"gys":"通运鑫","ht":"6200067732","kp":"2000518993","dj":"1000503574","je":227816.4,"se":29616.13,"t":"5.9"},{"xh":199,"gys":"通运鑫","ht":"6200068007","kp":"2000519011","dj":"1000503573","je":379398,"se":49321.74,"t":"5.9"},{"xh":200,"gys":"金凯","ht":"6200050192","kp":"2000518967","dj":"1000505837","je":7448,"se":968.24,"t":"5.9"},{"xh":201,"gys":"金凯","ht":"6200050793","kp":"2000518969","dj":"1000505858","je":304660,"se":39605.8,"t":"5.9"},{"xh":202,"gys":"金凯","ht":"6200027912","kp":"2000518987","dj":"1000505864","je":50642,"se":6583.47,"t":"5.9"},{"xh":203,"gys":"金凯","ht":"6200051697","kp":"2000518988","dj":"1000505869","je":19350,"se":2515.5,"t":"5.9"},{"xh":204,"gys":"济南同工","ht":"6200067898","kp":"2000519016","dj":"1000505895","je":65792,"se":8552.96,"t":"5.9"},{"xh":205,"gys":"济南同工","ht":"6200067279","kp":"2000519082","dj":"1000505899","je":58220,"se":7568.6,"t":"5.9"},{"xh":206,"gys":"济南同工","ht":"6200067897","kp":"2000519083","dj":"1000505901","je":59793,"se":7773.09,"t":"5.9"},{"xh":207,"gys":"济南同工","ht":"6200067213","kp":"2000519084","dj":"1000505903","je":30014,"se":3901.82,"t":"5.9"},{"xh":208,"gys":"济南同工","ht":"6200067214","kp":"2000519085","dj":"1000505906","je":161978,"se":21057.14,"t":"5.9"},{"xh":209,"gys":"恒顺通","ht":"6200054427","kp":"2000519086","dj":"1000505814","je":26411,"se":3433.43,"t":"5.9"},{"xh":210,"gys":"恒顺通","ht":"6200054431","kp":"2000519087","dj":"1000505818","je":23564,"se":3063.32,"t":"5.9"},{"xh":211,"gys":"恒顺通","ht":"6200064139","kp":"2000520570","dj":"1000506264","je":82320,"se":10701.6,"t":"5.17"},{"xh":212,"gys":"恒顺通","ht":"6200054232","kp":"2000520571","dj":"1000506265","je":7460,"se":969.8,"t":"5.17"},{"xh":213,"gys":"恒顺通","ht":"6200063787","kp":"2000520572","dj":"1000506266","je":93310,"se":12130.3,"t":"5.17"},{"xh":214,"gys":"恒顺通","ht":"6200063784","kp":"2000520573","dj":"1000506267","je":51676,"se":6717.88,"t":"5.17"},{"xh":215,"gys":"恒顺通","ht":"6200063876","kp":"2000520574","dj":"1000506268","je":3588,"se":466.44,"t":"5.17"},{"xh":216,"gys":"恒顺通","ht":"6200064065","kp":"2000520575","dj":"1000506269","je":277015.13,"se":36011.98,"t":"5.17"},{"xh":217,"gys":"恒顺通","ht":"6200064064","kp":"2000520636","dj":"1000506290","je":687704,"se":89401.52,"t":"5.17"},{"xh":218,"gys":"恒顺通","ht":"6200064061","kp":"2000520637","dj":"1000506291","je":4494,"se":584.22,"t":"5.17"},{"xh":219,"gys":"恒顺通","ht":"6200064059","kp":"2000520638","dj":"1000506292","je":345424,"se":44905.12,"t":"5.17"},{"xh":220,"gys":"恒顺通","ht":"6200064224","kp":"2000520639","dj":"1000506293","je":45364.2,"se":5897.35,"t":"5.17"},{"xh":221,"gys":"恒顺通","ht":"6200064223","kp":"2000520640","dj":"1000506294","je":20890,"se":2715.7,"t":"5.17"},{"xh":222,"gys":"恒顺通","ht":"6200064221","kp":"2000520641","dj":"1000506295","je":32339,"se":4204.07,"t":"5.17"},{"xh":223,"gys":"恒顺通","ht":"6200065397","kp":"2000520642","dj":"1000506297","je":220340,"se":28644.2,"t":"5.17"},{"xh":224,"gys":"恒顺通","ht":"6200065396","kp":"2000520643","dj":"1000506321","je":1080355,"se":140446.15,"t":"5.17"},{"xh":225,"gys":"恒顺通","ht":"6200065395","kp":"2000520644","dj":"1000506159","je":394244,"se":51251.72,"t":"5.17"},{"xh":226,"gys":"恒顺通","ht":"6200065394","kp":"2000520645","dj":"1000506150","je":150132,"se":19517.16,"t":"5.17"},{"xh":227,"gys":"恒顺通","ht":"6200065393","kp":"2000520646","dj":"1000506071","je":94494,"se":12284.22,"t":"5.17"},{"xh":228,"gys":"恒顺通","ht":"6200065390","kp":"2000520647","dj":"1000506064","je":384882,"se":50034.66,"t":"5.17"},{"xh":229,"gys":"恒顺通","ht":"6200065392","kp":"2000520648","dj":"1000506045","je":61049.74,"se":7936.49,"t":"5.17"},{"xh":230,"gys":"恒顺通","ht":"6200065391","kp":"2000520649","dj":"1000506025","je":945.3,"se":122.89,"t":"5.17"},{"xh":231,"gys":"恒顺通","ht":"6200064140","kp":"2000520650","dj":"1000506041","je":45174.64,"se":5872.71,"t":"5.17"},{"xh":232,"gys":"卧铺厂","ht":"6200054817","kp":"2000520651","dj":"1000506014","je":73080,"se":9500.4,"t":"5.17"},{"xh":233,"gys":"卧铺厂","ht":"6200054684","kp":"2000520652","dj":"1000506005","je":38648,"se":5024.24,"t":"5.17"},{"xh":234,"gys":"卧铺厂","ht":"6200054708","kp":"2000520653","dj":"1000505985","je":47010,"se":6111.3,"t":"5.17"},{"xh":235,"gys":"金凯","ht":"6200027201","kp":"2000520976","dj":"1000505643","je":12218.2,"se":1588.37,"t":"5.18"},{"xh":236,"gys":"金凯","ht":"6200048840","kp":"2000520977","dj":"1000505642","je":160,"se":20.8,"t":"5.18"},{"xh":237,"gys":"恒顺通","ht":"6200065389","kp":"2000520978","dj":"1000505788","je":93310,"se":12130.3,"t":"5.18"},{"xh":238,"gys":"恒顺通","ht":"6200065398","kp":"2000520979","dj":"1000505806","je":535711.6,"se":69642.52,"t":"5.18"},{"xh":239,"gys":"领晟","ht":"6200054011","kp":"2000520980","dj":"1000505720","je":267462,"se":34770.06,"t":"5.18"},{"xh":240,"gys":"梓恒瑞","ht":"6200073555","kp":"2000544111","dj":"1000527739","je":2733660,"se":355375.8,"t":"8.1"},{"xh":241,"gys":"梓恒瑞","ht":"6200073554","kp":"2000544112","dj":"1000527742","je":1886580,"se":245255.4,"t":"8.1"},{"xh":242,"gys":"通运鑫","ht":"6200073446","kp":"2000544928","dj":"1000528579","je":271495.1,"se":35294.36,"t":"8.1"},{"xh":243,"gys":"通运鑫","ht":"6200073447","kp":"2000544929","dj":"1000528610","je":293896.73,"se":38206.57,"t":"8.1"},{"xh":244,"gys":"通运鑫","ht":"6200073452","kp":"2000544930","dj":"1000528611","je":279524.04,"se":36338.12,"t":"8.1"},{"xh":245,"gys":"通运鑫","ht":"6200073455","kp":"2000544931","dj":"1000528612","je":275063.55,"se":35758.26,"t":"8.1"},{"xh":246,"gys":"通运鑫","ht":"6200073456","kp":"2000544932","dj":"1000528613","je":141288,"se":18367.44,"t":"8.1"},{"xh":247,"gys":"济南同工","ht":"6200072251","kp":"2000545182","dj":"1000528650","je":87766,"se":11409.58,"t":"8.4"},{"xh":248,"gys":"济南同工","ht":"6200072250","kp":"2000545185","dj":"1000528651","je":65449,"se":8508.37,"t":"8.4"},{"xh":249,"gys":"济南同工","ht":"6200073933","kp":"2000545187","dj":"1000528652","je":73033,"se":9494.29,"t":"8.4"},{"xh":250,"gys":"广冷华旭","ht":"6200071192","kp":"2000545192","dj":"1000528653","je":737638,"se":95892.94,"t":"8.4"},{"xh":251,"gys":"广冷华旭","ht":"6200073156","kp":"2000545194","dj":"1000528654","je":1194715.88,"se":155313.04,"t":"8.4"},{"xh":252,"gys":"广冷华旭","ht":"6200073155","kp":"2000545196","dj":"1000528655","je":443284.08,"se":57626.93,"t":"8.4"},{"xh":253,"gys":"广冷华旭","ht":"6200071193","kp":"2000545197","dj":"1000528656","je":2950552,"se":383571.76,"t":"8.4"},{"xh":254,"gys":"领晟","ht":"6200073095","kp":"2000545508","dj":"1000528932","je":201095.63,"se":26142.44,"t":"8.6"},{"xh":255,"gys":"领晟","ht":"6200073168","kp":"2000545510","dj":"1000528935","je":126360,"se":16426.8,"t":"8.6"},{"xh":256,"gys":"恒顺通","ht":"6200067162","kp":"2000545813","dj":"1000529097","je":134398,"se":17471.74,"t":"8.9"},{"xh":257,"gys":"恒顺通","ht":"6200067161","kp":"2000545814","dj":"1000529101","je":285293,"se":37088.09,"t":"8.9"},{"xh":258,"gys":"恒顺通","ht":"6200067160","kp":"2000545815","dj":"1000529102","je":57696.4,"se":7500.55,"t":"8.9"},{"xh":259,"gys":"恒顺通","ht":"6200067159","kp":"2000545816","dj":"1000529103","je":62121,"se":8075.73,"t":"8.9"},{"xh":260,"gys":"恒顺通","ht":"6200067156","kp":"2000545818","dj":"1000529106","je":78158,"se":10160.54,"t":"8.9"},{"xh":261,"gys":"恒顺通","ht":"6200067152","kp":"2000545821","dj":"1000529117","je":117270,"se":15245.1,"t":"8.9"},{"xh":262,"gys":"恒顺通","ht":"6200067153","kp":"2000545819","dj":"1000529114","je":417000,"se":54210,"t":"8.9"},{"xh":263,"gys":"恒顺通","ht":"6300039880","kp":"2000546013","dj":"1000529303","je":406290,"se":52817.7,"t":"8.9"},{"xh":264,"gys":"恒顺通","ht":"6200073158","kp":"2000546014","dj":"1000529304","je":8596,"se":1117.48,"t":"8.9"},{"xh":265,"gys":"恒顺通","ht":"6200067210","kp":"2000546015","dj":"1000529305","je":105044.92,"se":13655.83,"t":"8.9"},{"xh":266,"gys":"恒顺通","ht":"6200067209","kp":"2000546076","dj":"1000529306","je":956,"se":124.28,"t":"8.9"},{"xh":267,"gys":"恒顺通","ht":"6200067206","kp":"2000546077","dj":"1000529307","je":9690,"se":1259.7,"t":"8.9"},{"xh":268,"gys":"恒顺通","ht":"6200067208","kp":"2000546078","dj":"1000529308","je":5040,"se":655.2,"t":"8.9"},{"xh":269,"gys":"恒顺通","ht":"6200067205","kp":"2000546079","dj":"1000529309","je":8555,"se":1112.15,"t":"8.9"},{"xh":270,"gys":"恒顺通","ht":"6200067238","kp":"2000546080","dj":"1000529310","je":233537,"se":30359.81,"t":"8.9"},{"xh":271,"gys":"恒顺通","ht":"6200067237","kp":"2000546081","dj":"1000529311","je":10194,"se":1325.22,"t":"8.9"},{"xh":272,"gys":"恒顺通","ht":"6200067236","kp":"2000546082","dj":"1000529312","je":63838.25,"se":8298.98,"t":"8.9"},{"xh":273,"gys":"恒顺通","ht":"6200067235","kp":"2000546083","dj":"1000529313","je":2138,"se":277.94,"t":"8.9"},{"xh":274,"gys":"恒顺通","ht":"6200067281","kp":"2000546084","dj":"1000529314","je":81504,"se":10595.52,"t":"8.9"},{"xh":275,"gys":"恒顺通","ht":"6200067234","kp":"2000546085","dj":"1000529315","je":319172,"se":41492.36,"t":"8.9"},{"xh":276,"gys":"恒顺通","ht":"6200067341","kp":"2000546086","dj":"1000529316","je":217136,"se":28227.68,"t":"8.9"},{"xh":277,"gys":"广冷华旭","ht":"6300039369","kp":"2000547257","dj":"1000530598","je":650000,"se":84500,"t":"8.9"},{"xh":278,"gys":"领晟","ht":"6200072661","kp":"2000549594","dj":"1000533081","je":333423.94,"se":43345.14,"t":"8.20"},{"xh":279,"gys":"领晟","ht":"6200072660","kp":"2000549595","dj":"1000533083","je":290467.72,"se":37760.83,"t":"8.20"},{"xh":280,"gys":"恒顺通","ht":"6200053133","kp":"2000549661","dj":"1000533138","je":47010,"se":6111.3,"t":"8.20"},{"xh":281,"gys":"今创","ht":"6200073556","kp":"2000550573","dj":"1000534457","je":1822140,"se":236878.2,"t":"8.24"},{"xh":282,"gys":"通运鑫","ht":"6200074871","kp":"2000555033","dj":"1000538616","je":179310.96,"se":23310.42,"t":"9.17"},{"xh":283,"gys":"通运鑫","ht":"6200074870","kp":"2000555037","dj":"1000538617","je":341458.2,"se":44389.56,"t":"9.17"},{"xh":284,"gys":"通运鑫","ht":"6200074869","kp":"2000555039","dj":"1000538618","je":354702.95,"se":46111.38,"t":"9.17"},{"xh":285,"gys":"通运鑫","ht":"6200074868","kp":"2000555041","dj":"1000538623","je":333555.25,"se":43362.18,"t":"9.17"},{"xh":286,"gys":"通运鑫","ht":"6200074867","kp":"2000555056","dj":"1000538627","je":346995.36,"se":45109.4,"t":"9.17"},{"xh":287,"gys":"恒顺通","ht":"6200067233","kp":"2000555939","dj":"1000539314","je":804580,"se":104595.4,"t":"9.17"},{"xh":288,"gys":"恒顺通","ht":"6200064141","kp":"2000555954","dj":"1000539315","je":1078,"se":140.14,"t":"9.17"},{"xh":289,"gys":"恒顺通","ht":"6200065378","kp":"2000555958","dj":"1000539316","je":528,"se":68.64,"t":"9.17"},{"xh":290,"gys":"恒顺通","ht":"6200067280","kp":"2000555960","dj":"1000539317","je":4576,"se":594.88,"t":"9.17"},{"xh":291,"gys":"恒顺通","ht":"6200067932","kp":"2000555966","dj":"1000539318","je":284853,"se":37030.87,"t":"9.17"},{"xh":292,"gys":"恒顺通","ht":"6200067929","kp":"2000555970","dj":"1000539319","je":135092,"se":17561.96,"t":"9.17"},{"xh":293,"gys":"恒顺通","ht":"6200067163","kp":"2000555978","dj":"1000539320","je":420662.5,"se":54686.08,"t":"9.17"},{"xh":294,"gys":"恒顺通","ht":"6200067207","kp":"2000555983","dj":"1000539321","je":127288,"se":16547.44,"t":"9.17"},{"xh":295,"gys":"恒顺通","ht":"6200067928","kp":"2000555986","dj":"1000539322","je":90380,"se":11749.4,"t":"9.17"},{"xh":296,"gys":"恒顺通","ht":"6200073160","kp":"2000555988","dj":"1000539323","je":8732,"se":1135.16,"t":"9.17"},{"xh":297,"gys":"恒顺通","ht":"6200073161","kp":"2000555990","dj":"1000539324","je":18466,"se":2400.58,"t":"9.17"},{"xh":298,"gys":"恒顺通","ht":"6200073159","kp":"2000555992","dj":"1000539326","je":97354,"se":12656.02,"t":"9.17"},{"xh":299,"gys":"恒顺通","ht":"6200067340","kp":"2000557976","dj":"1000541486","je":244000,"se":31720,"t":"9.17"},{"xh":300,"gys":"领晟","ht":"6200072778","kp":"2000556086","dj":"1000539348","je":25454.52,"se":3309.09,"t":"9.17"},{"xh":301,"gys":"金凯","ht":"6200050056","kp":"2000556095","dj":"1000539352","je":60000,"se":7800,"t":"9.17"},{"xh":302,"gys":"今创","ht":"6200073556","kp":"2000560440","dj":"1000544223","je":447120,"se":58125.6,"t":"10.12"},{"xh":303,"gys":"济南同工","ht":"6200075913","kp":"2000561144","dj":"1000544723","je":80044,"se":10405.72,"t":"10.14"},{"xh":304,"gys":"济南同工","ht":"6200075914","kp":"2000561145","dj":"1000544724","je":19282,"se":2506.66,"t":"10.14"},{"xh":305,"gys":"济南同工","ht":"6200074887","kp":"2000561158","dj":"1000544725","je":25076,"se":3259.88,"t":"10.14"},{"xh":306,"gys":"济南同工","ht":"6200074886","kp":"2000561159","dj":"1000544726","je":25076,"se":3259.88,"t":"10.14"},{"xh":307,"gys":"恒顺通","ht":"6200069357","kp":"2000561936","dj":"1000545305","je":435548,"se":56621.24,"t":"10.17"},{"xh":308,"gys":"恒顺通","ht":"6200069358","kp":"2000561937","dj":"1000545306","je":341135,"se":44347.55,"t":"10.17"},{"xh":309,"gys":"恒顺通","ht":"6200069362","kp":"2000561938","dj":"1000545307","je":311,"se":40.43,"t":"10.17"},{"xh":310,"gys":"恒顺通","ht":"6200069355","kp":"2000561939","dj":"1000545308","je":1024445,"se":133177.85,"t":"10.17"},{"xh":311,"gys":"恒顺通","ht":"6200069368","kp":"2000561940","dj":"1000545310","je":5670,"se":737.1,"t":"10.17"},{"xh":312,"gys":"恒顺通","ht":"6200069372","kp":"2000561941","dj":"1000545311","je":121741,"se":15826.33,"t":"10.17"},{"xh":313,"gys":"恒顺通","ht":"6200069352","kp":"2000561942","dj":"1000545312","je":190589,"se":24776.57,"t":"10.17"},{"xh":314,"gys":"恒顺通","ht":"6200067935","kp":"2000561943","dj":"1000545313","je":662194.5,"se":86085.31,"t":"10.17"},{"xh":315,"gys":"恒顺通","ht":"6200067934","kp":"2000561944","dj":"1000545314","je":585988.1,"se":76178.44,"t":"10.17"},{"xh":316,"gys":"恒顺通","ht":"6200067933","kp":"2000561945","dj":"1000545315","je":109043,"se":14175.59,"t":"10.17"},{"xh":317,"gys":"恒顺通","ht":"6200067930","kp":"2000561946","dj":"1000545316","je":248046.75,"se":32246.08,"t":"10.17"},{"xh":318,"gys":"恒顺通","ht":"6200067927","kp":"2000561947","dj":"1000545317","je":4436,"se":576.68,"t":"10.17"},{"xh":319,"gys":"恒顺通","ht":"6200067926","kp":"2000561948","dj":"1000545318","je":61400,"se":7982,"t":"10.17"},{"xh":320,"gys":"恒顺通","ht":"6200067925","kp":"2000561949","dj":"1000545319","je":13581,"se":1765.53,"t":"10.17"},{"xh":321,"gys":"恒顺通","ht":"6200067924","kp":"2000561950","dj":"1000545321","je":1896,"se":246.48,"t":"10.17"},{"xh":322,"gys":"恒顺通","ht":"6200067923","kp":"2000561951","dj":"1000545322","je":130500,"se":16965,"t":"10.17"},{"xh":323,"gys":"恒顺通","ht":"6200067949","kp":"2000561952","dj":"1000545323","je":16740,"se":2176.2,"t":"10.17"},{"xh":324,"gys":"恒顺通","ht":"6200068071","kp":"2000561953","dj":"1000545324","je":832,"se":108.16,"t":"10.17"},{"xh":325,"gys":"恒顺通","ht":"6200068069","kp":"2000561954","dj":"1000545325","je":43541,"se":5660.33,"t":"10.17"},{"xh":326,"gys":"恒顺通","ht":"6200068068","kp":"2000561955","dj":"1000545326","je":8402,"se":1092.26,"t":"10.17"},{"xh":327,"gys":"恒顺通","ht":"6200068067","kp":"2000561966","dj":"1000545327","je":3724.5,"se":484.19,"t":"10.17"},{"xh":328,"gys":"恒顺通","ht":"6200068921","kp":"2000561967","dj":"1000545328","je":6072,"se":789.36,"t":"10.17"},{"xh":329,"gys":"恒顺通","ht":"6200068127","kp":"2000561968","dj":"1000545329","je":4815,"se":625.95,"t":"10.17"},{"xh":330,"gys":"恒顺通","ht":"6200068128","kp":"2000561969","dj":"1000545330","je":64321,"se":8361.73,"t":"10.17"},{"xh":331,"gys":"恒顺通","ht":"6200068130","kp":"2000561970","dj":"1000545331","je":315173,"se":40972.49,"t":"10.17"},{"xh":332,"gys":"通运鑫","ht":"6200076298","kp":"2000561971","dj":"1000545332","je":346995.36,"se":45109.4,"t":"10.17"},{"xh":333,"gys":"通运鑫","ht":"6200076299","kp":"2000561972","dj":"1000545333","je":9638.76,"se":1253.04,"t":"10.17"},{"xh":334,"gys":"通运鑫","ht":"6200076300","kp":"2000561973","dj":"1000545334","je":341458.2,"se":44389.56,"t":"10.17"},{"xh":335,"gys":"通运鑫","ht":"6200076301","kp":"2000561974","dj":"1000545335","je":9484.95,"se":1233.04,"t":"10.17"},{"xh":336,"gys":"通运鑫","ht":"6200076303","kp":"2000563727","dj":"1000546376","je":5317.28,"se":691.25,"t":"10.20"},{"xh":337,"gys":"通运鑫","ht":"6200076332","kp":"2000563728","dj":"1000546378","je":5041.55,"se":655.4,"t":"10.20"},{"xh":338,"gys":"通运鑫","ht":"6200076307","kp":"2000563729","dj":"1000546380","je":10134.37,"se":1317.46,"t":"10.20"},{"xh":339,"gys":"通运鑫","ht":"6200076306","kp":"2000563730","dj":"1000546382","je":364837.32,"se":47428.86,"t":"10.20"},{"xh":340,"gys":"通运鑫","ht":"6200076331","kp":"2000563732","dj":"1000546384","je":5041.55,"se":655.4,"t":"10.20"},{"xh":341,"gys":"通运鑫","ht":"6200076304","kp":"2000563733","dj":"1000546386","je":338043.85,"se":43945.7,"t":"10.20"},{"xh":342,"gys":"通运鑫","ht":"6200076302","kp":"2000563734","dj":"1000546387","je":191422.08,"se":24884.87,"t":"10.20"},{"xh":343,"gys":"通运鑫","ht":"6200076305","kp":"2000563735","dj":"1000546388","je":4488.6,"se":583.52,"t":"10.20"},{"xh":344,"gys":"梓恒瑞","ht":"6200073555","kp":"2000564121","dj":"1000547128","je":1036800,"se":134784,"t":"10.22"},{"xh":345,"gys":"梓恒瑞","ht":"6200073554","kp":"2000564180","dj":"1000547205","je":1015920,"se":132069.6,"t":"10.22"},{"xh":346,"gys":"今创","ht":"6200073556","kp":"2000564675","dj":"1000548024","je":664560,"se":86392.8,"t":"10.22"}];
+
+const STORE_KEY = 'invoice_data_v1';
+const ADMIN_HASH = '50ac5c31b31368d4995a85e637b8d291b7e743709c45ef386017630bf9d3ffe8';
+const PAGE_SIZE = 15;
+
+let isAdmin = false, deleteMode = false;
+let filtered = [], page = 1;
+let charts = {};
+
+/* ---------- 数据读写 ---------- */
+function loadData(){
+  try{
+    const s = localStorage.getItem(STORE_KEY);
+    if(s){ const d = JSON.parse(s); if(Array.isArray(d)) return d; }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(INIT_DATA));
+}
+function saveData(){ localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); }
+let DATA = loadData();
+
+function normRec(r){
+  return {
+    xh: r.xh ?? '',
+    gys: String(r.gys ?? '').trim(),
+    ht: r.ht ?? '',
+    kp: r.kp ?? '',
+    dj: r.dj ?? '',
+    je: Number(r.je) || 0,
+    se: Number(r.se) || 0,
+    t: String(r.t ?? '').replace(/\.0$/,'')
+  };
+}
+function monthOf(t){ const m = parseFloat(String(t)); return (m>=1&&m<=12)?Math.floor(m):0; }
+function zje(r){ return +(r.je + r.se).toFixed(2); }
+function fmtN(n){ return Number(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtT(t){ const m=monthOf(t); if(!m) return String(t||'-'); const d=Math.round((parseFloat(String(t))-m)*100); return m+'月'+(d||'')+'日'; }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- 筛选 ---------- */
+function buildFilterOptions(){
+  const months = [...new Set(DATA.map(r=>monthOf(r.t)).filter(Boolean))].sort((a,b)=>a-b);
+  const sels = [...new Set(DATA.map(r=>r.gys).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh'));
+  const mSel = document.getElementById('fMonth'), sSel = document.getElementById('fSup');
+  const mv = mSel.value, sv = sSel.value;
+  mSel.innerHTML = '<option value="">全部月份</option>' + months.map(m=>`<option value="${m}">${m}月</option>`).join('');
+  sSel.innerHTML = '<option value="">全部供应商</option>' + sels.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  mSel.value = mv; sSel.value = sv;
+}
+function applyFilter(){
+  const m = document.getElementById('fMonth').value;
+  const sup = document.getElementById('fSup').value;
+  const kw = document.getElementById('fKey').value.trim().toLowerCase();
+  filtered = DATA.filter(r=>{
+    if(m && String(monthOf(r.t))!==m) return false;
+    if(sup && r.gys!==sup) return false;
+    if(kw){
+      const blob = [r.gys,r.ht,r.kp,r.dj,r.t].join(' ').toLowerCase();
+      if(!blob.includes(kw)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b)=>(parseFloat(a.t)||0)-(parseFloat(b.t)||0));
+  page = 1;
+  render();
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  // 统计卡
+  const sum = f => filtered.reduce((s,r)=>s+f(r),0);
+  const totF = sum(zje), totAll = DATA.reduce((s,r)=>s+zje(r),0);
+  document.getElementById('stTotal').innerHTML = fmtN(totF)+'<small>元</small>';
+  document.getElementById('stTotalAll').textContent = '全部数据：'+fmtN(totAll)+' 元';
+  document.getElementById('stCount').innerHTML = filtered.length+'<small>张</small>';
+  document.getElementById('stCountAll').textContent = DATA.length;
+  document.getElementById('stTax').innerHTML = fmtN(sum(r=>r.se))+'<small>元</small>';
+  document.getElementById('stAvg').textContent = filtered.length? fmtN(totF/filtered.length) : '--';
+  const sups = [...new Set(filtered.map(r=>r.gys).filter(Boolean))];
+  document.getElementById('stSup').innerHTML = sups.length+'<small>家</small>';
+  if(filtered.length){
+    const agg = {}; filtered.forEach(r=>agg[r.gys]=(agg[r.gys]||0)+zje(r));
+    const top = Object.entries(agg).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('stTopSup').textContent = '金额最高：'+top[0];
+  } else document.getElementById('stTopSup').textContent = '--';
+  document.getElementById('fCount').textContent = filtered.length;
+
+  renderCharts();
+  renderTable();
+}
+
+function renderCharts(){
+  // 月度
+  const months = [...new Set(DATA.map(r=>monthOf(r.t)).filter(Boolean))].sort((a,b)=>a-b);
+  const inScope = months.length?months:[1];
+  const mAgg = {}; inScope.forEach(m=>mAgg[m]={amt:0,cnt:0});
+  filtered.forEach(r=>{ const m=monthOf(r.t); if(mAgg[m]){mAgg[m].amt+=zje(r);mAgg[m].cnt++;} });
+  const xs = inScope.map(m=>m+'月');
+  const amtData = inScope.map(m=>+mAgg[m].amt.toFixed(2));
+  const cntData = inScope.map(m=>mAgg[m].cnt);
+
+  if(!charts.bar) charts.bar = echarts.init(document.getElementById('chartBar'));
+  charts.bar.setOption({
+    tooltip:{trigger:'axis',valueFormatter:v=>typeof v==='number'?fmtN(v):v},
+    legend:{data:['开票总金额','张数'],top:0,textStyle:{fontSize:12}},
+    grid:{left:60,right:50,top:36,bottom:30},
+    xAxis:{type:'category',data:xs,axisLabel:{fontSize:12}},
+    yAxis:[
+      {type:'value',name:'金额(元)',axisLabel:{formatter:v=>v>=10000?(v/10000)+'万':v}},
+      {type:'value',name:'张数',minInterval:1}
+    ],
+    series:[
+      {name:'开票总金额',type:'bar',data:amtData,barMaxWidth:36,itemStyle:{borderRadius:[6,6,0,0],color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#3b82f6'},{offset:1,color:'#1d4ed8'}])}},
+      {name:'张数',type:'line',yAxisIndex:1,data:cntData,smooth:true,itemStyle:{color:'#f59e0b'},lineStyle:{width:2.5}}
+    ]
+  },true);
+
+  // 供应商饼图
+  const agg = {}; filtered.forEach(r=>{ if(r.gys) agg[r.gys]=(agg[r.gys]||0)+zje(r); });
+  const pie = Object.entries(agg).sort((a,b)=>b[1]-a[1]).map(([n,v])=>({name:n,value:+v.toFixed(2)}));
+  if(!charts.pie) charts.pie = echarts.init(document.getElementById('chartPie'));
+  charts.pie.setOption({
+    tooltip:{trigger:'item',formatter:p=>`${p.name}<br/>${fmtN(p.value)} 元（${p.percent}%）`},
+    legend:{type:'scroll',orient:'vertical',right:0,top:'middle',textStyle:{fontSize:11}},
+    series:[{
+      type:'pie',radius:['42%','70%'],center:['38%','52%'],
+      label:{formatter:'{d}%',fontSize:11},
+      data:pie,
+      itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2}
+    }]
+  },true);
+}
+
+let pageItems = [];
+function renderTable(){
+  const tb = document.getElementById('tbody');
+  const totalPages = Math.max(1, Math.ceil(filtered.length/PAGE_SIZE));
+  if(page>totalPages) page = totalPages;
+  const start = (page-1)*PAGE_SIZE;
+  pageItems = filtered.slice(start, start+PAGE_SIZE);
+
+  if(!filtered.length){
+    tb.innerHTML = '<tr class="empty-row"><td colspan="9">没有符合条件的记录</td></tr>';
+  } else {
+    tb.innerHTML = pageItems.map((r,i)=>{
+      const gIdx = DATA.indexOf(r);
+      return `<tr${deleteMode?' style="cursor:pointer" onclick="delRow('+gIdx+')" title="点击删除此行"':''}>
+        <td>${start+i+1}</td>
+        <td><span class="tag">${esc(r.gys)}</span></td>
+        <td>${esc(r.ht)}</td><td>${esc(r.kp)}</td><td>${esc(r.dj)}</td>
+        <td class="num">${fmtN(r.je)}</td>
+        <td class="num">${fmtN(r.se)}</td>
+        <td class="num amt">${fmtN(zje(r))}</td>
+        <td><span class="tag-month">${fmtT(r.t)}</span></td>
+        ${deleteMode?'<td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();delRow('+gIdx+')">删除</button></td>':''}
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('thOp').style.display = deleteMode?'':'none';
+
+  document.getElementById('pageInfo').textContent = filtered.length?
+    `第 ${start+1}-${Math.min(start+PAGE_SIZE,filtered.length)} 条，共 ${filtered.length} 条` : '';
+  let btns = `<button ${page<=1?'disabled':''} onclick="gotoPage(${page-1})">‹ 上一页</button>`;
+  const showPages = [];
+  for(let p=1;p<=totalPages;p++){
+    if(p===1||p===totalPages||Math.abs(p-page)<=2) showPages.push(p);
+  }
+  let last=0;
+  showPages.forEach(p=>{
+    if(p-last>1) btns+='<span style="padding:6px 2px;color:#94a3b8">…</span>';
+    btns+=`<button class="${p===page?'cur':''}" onclick="gotoPage(${p})">${p}</button>`;
+    last=p;
+  });
+  btns += `<button ${page>=totalPages?'disabled':''} onclick="gotoPage(${page+1})">下一页 ›</button>`;
+  document.getElementById('pageBtns').innerHTML = btns;
+}
+function gotoPage(p){ page=p; renderTable(); window.scrollTo({top:document.body.scrollHeight*0.4,behavior:'smooth'}); }
+
+function resetFilter(){
+  document.getElementById('fMonth').value='';
+  document.getElementById('fSup').value='';
+  document.getElementById('fKey').value='';
+  applyFilter();
+}
+
+/* ---------- 管理员 ---------- */
+async function sha256(s){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function openAdminGate(){ showModal('gateMask'); setTimeout(()=>document.getElementById('pwdInput').focus(),50); }
+async function tryLogin(){
+  const v = document.getElementById('pwdInput').value;
+  const h = await sha256(v);
+  if(h===ADMIN_HASH){
+    isAdmin = true;
+    document.getElementById('pwdInput').value='';
+    document.getElementById('pwdErr').style.display='none';
+    document.getElementById('adminBadge').classList.add('on');
+    document.getElementById('adminBtn').innerHTML='✅ 已进入管理模式';
+    closeModal('gateMask');
+    showModal('adminMask');
+    toast('管理员验证通过','ok');
+  } else {
+    document.getElementById('pwdErr').style.display='block';
+  }
+}
+function logoutAdmin(){
+  isAdmin=false; deleteMode=false;
+  document.getElementById('adminBadge').classList.remove('on');
+  document.getElementById('adminBtn').innerHTML='🔐 数据管理';
+  document.getElementById('delModeBtn').textContent='开启删除模式（明细表中选择删除）';
+  closeModal('adminMask'); render();
+  toast('已退出管理员模式');
+}
+function toggleDeleteMode(){
+  deleteMode=!deleteMode;
+  document.getElementById('delModeBtn').textContent = deleteMode?'关闭删除模式':'开启删除模式（明细表中选择删除）';
+  closeModal('adminMask');
+  toast(deleteMode?'删除模式已开启：点击明细表中的行即可删除':'删除模式已关闭', deleteMode?'err':'ok');
+  render();
+}
+function delRow(idx){
+  const r = DATA[idx];
+  if(!r) return;
+  if(!confirm('确认删除该条记录？\n供应商：'+r.gys+'\n单据号：'+r.dj+'\n总金额：'+fmtN(zje(r))+' 元')) return;
+  DATA.splice(idx,1); saveData(); buildFilterOptions(); applyFilter();
+  toast('已删除 1 条记录','ok');
+}
+function clearAll(){
+  if(!confirm('⚠ 确认清空全部 '+DATA.length+' 条数据？此操作不可撤销！')) return;
+  if(!confirm('再次确认：真的要清空全部数据吗？建议先导出备份。')) return;
+  DATA=[]; saveData(); buildFilterOptions(); applyFilter();
+  toast('已清空全部数据','ok');
+}
+function restoreInit(){
+  if(!confirm('恢复为网页内置数据？当前浏览器中的修改将被覆盖。')) return;
+  DATA = JSON.parse(JSON.stringify(INIT_DATA)); saveData(); buildFilterOptions(); applyFilter();
+  toast('已恢复内置数据','ok');
+}
+function addRecord(){
+  const gys = document.getElementById('aSup').value.trim();
+  const je = parseFloat(document.getElementById('aJe').value);
+  const se = parseFloat(document.getElementById('aSe').value)||0;
+  if(!gys){ toast('请填写供应商','err'); return; }
+  if(isNaN(je)){ toast('请填写金额','err'); return; }
+  const t = document.getElementById('aT').value.trim()||'';
+  DATA.push(normRec({gys, ht:document.getElementById('aHt').value.trim(), kp:document.getElementById('aKp').value.trim(), dj:document.getElementById('aDj').value.trim(), je, se, t, xh:DATA.length+1}));
+  saveData(); buildFilterOptions(); applyFilter();
+  ['aHt','aKp','aDj','aJe','aSe','aT'].forEach(id=>document.getElementById(id).value='');
+  toast('已添加记录','ok');
+}
+
+/* ---------- Excel 导入导出 ---------- */
+function parseTimeVal(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='number') return String(v).replace(/\.0$/,'');
+  return String(v).trim();
+}
+function importExcel(){
+  const f = document.getElementById('impFile').files[0];
+  if(!f){ toast('请先选择文件','err'); return; }
+  const mode = document.getElementById('impMode').value;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const wb = XLSX.read(e.target.result,{type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rows.length){ toast('文件中没有数据','err'); return; }
+      const keyMap = {
+        '供应商':'gys','供货单位':'gys','单位':'gys',
+        '合同号':'ht','合同编号':'ht','合同':'ht',
+        '开票单据':'kp','开票单据号':'kp',
+        '单据号':'dj','单据编号':'dj',
+        '金额':'je','不含税金额':'je',
+        '税额':'se',
+        '总金额':'zj','含税金额':'zj','价税合计':'zj',
+        '下推时间':'t','下推日期':'t','时间':'t'
+      };
+      const recs = [];
+      rows.forEach((row,i)=>{
+        const o = {};
+        Object.keys(row).forEach(k=>{
+          const kk = String(k).trim();
+          if(keyMap[kk]) o[keyMap[kk]] = row[k];
+        });
+        if(!o.gys && !o.dj && !o.ht) return; // 跳过空行
+        const je = parseFloat(o.je)||0, se = parseFloat(o.se)||0;
+        let zj = parseFloat(o.zj); if(isNaN(zj)) zj = je+se;
+        recs.push(normRec({xh:recs.length+1, gys:o.gys, ht:o.ht, kp:o.kp, dj:o.dj, je, se, t:parseTimeVal(o.t), _zj:zj}));
+      });
+      if(!recs.length){ toast('未识别到有效数据，请检查表头','err'); return; }
+      if(mode==='replace'){ DATA = recs; } else { DATA = DATA.concat(recs); }
+      DATA.forEach((r,i)=>r.xh=i+1);
+      saveData(); buildFilterOptions(); applyFilter();
+      toast('成功导入 '+recs.length+' 条记录','ok');
+      document.getElementById('impFile').value='';
+    }catch(err){ toast('解析失败：'+err.message,'err'); }
+  };
+  reader.readAsArrayBuffer(f);
+}
+function sheetFrom(data){
+  const aoa = [['序号','供应商','合同号','开票单据','单据号','金额','税额','总金额','下推时间']];
+  data.forEach(r=>aoa.push([r.xh, r.gys, r.ht, r.kp, r.dj, r.je, r.se, zje(r), r.t]));
+  return XLSX.utils.aoa_to_sheet(aoa);
+}
+function downloadWB(ws, name){
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '发票数据');
+  XLSX.writeFile(wb, name);
+}
+function exportAll(){ downloadWB(sheetFrom(DATA), '发票数据_全部_'+new Date().toISOString().slice(0,10)+'.xlsx'); }
+function exportFiltered(){ downloadWB(sheetFrom(filtered), '发票数据_筛选结果.xlsx'); }
+function downloadTemplate(){
+  downloadWB(sheetFrom([{xh:1,gys:'示例供应商',ht:'6200000000',kp:'2000000000',dj:'1000000000',je:1000,se:130,t:'1.15'}]), '发票导入模板.xlsx');
+}
+
+/* ---------- 通用 ---------- */
+function showModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+let toastTimer;
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+(type||'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+document.querySelectorAll('.modal-mask').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target===m && m.id!=='adminMask') m.classList.remove('show');
+}));
+window.addEventListener('resize',()=>{ Object.values(charts).forEach(c=>c&&c.resize()); });
+
+/* ---------- 启动 ---------- */
+buildFilterOptions();
+applyFilter();
+</script>
+</body>
+</html>
