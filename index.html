@@ -80,6 +80,18 @@ td.num,th.num{text-align:right}
 .na{color:#cbd5e1}
 .est{color:#b45309;border-bottom:1px dashed #f59e0b;cursor:help}
 .empty-row td{text-align:center;color:var(--muted);padding:40px}
+.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+.sortable .ar{color:#cbd5e1;font-size:10px;margin-left:3px}
+.sortable.on{color:var(--primary)}
+.sortable.on .ar{color:var(--primary)}
+.share-cell{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.share-bar{width:62px;height:6px;border-radius:4px;background:#e2e8f0;overflow:hidden;flex:0 0 auto}
+.share-bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#5eead4,#0d9488)}
+.share-pct{font-size:12px;color:var(--muted);min-width:44px;text-align:right}
+tr.dd-row{cursor:pointer;transition:background .15s}
+tr.dd-row:hover{background:#f8fafc}
+tr.dd-row td:first-child{font-weight:600}
+tfoot td{padding:11px 14px;font-weight:600;background:#f8fafc;border-top:2px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums}
 .pager{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px}
 .pager .info{font-size:13px;color:var(--muted)}
 .pager .pages{display:flex;gap:6px;flex-wrap:wrap}
@@ -192,6 +204,32 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
       <div class="chart-title">各调度应付金额</div>
       <div class="chart-sub">按应付金额（原币）统计，含当前筛选条件</div>
       <div class="chart-box" id="chartDd"></div>
+    </div>
+  </div>
+
+  <div class="table-card" style="margin-bottom:22px">
+    <div class="table-head">
+      <h3>📊 按调度挂账统计</h3>
+      <span class="chart-sub" id="ddStatTip" style="margin:0">按调度汇总当前筛选范围（不含调度筛选本身，便于横向对比）；点击表头排序，点击某行只看该调度</span>
+    </div>
+    <div class="table-wrap">
+      <table style="min-width:1020px">
+        <thead>
+          <tr>
+            <th class="sortable" data-k="dd" onclick="setDdSort('dd')">调度<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="cnt" onclick="setDdSort('cnt')">条数<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="sup" onclick="setDdSort('sup')">供应商<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="a" onclick="setDdSort('a')">应付金额（原币）<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="n" onclick="setDdSort('n')">应付金额（不含税）<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="tax" onclick="setDdSort('tax')">税额<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="share" onclick="setDdSort('share')">金额占比<span class="ar">↕</span></th>
+            <th class="sortable num" data-k="avg" onclick="setDdSort('avg')">月均挂账<span class="ar">↕</span></th>
+            <th>月份跨度</th>
+          </tr>
+        </thead>
+        <tbody id="ddStatBody"></tbody>
+        <tfoot id="ddStatFoot"></tfoot>
+      </table>
     </div>
   </div>
 
@@ -388,20 +426,26 @@ function onYearChange(){
   buildFilterOptions();   // 月份选项按所选年份重建，已选月份不属于该年时会自动清空
   applyFilter();
 }
+function currentQuery(){
+  return {
+    dd:document.getElementById('fDd').value,
+    yr:document.getElementById('fYear').value,
+    m:document.getElementById('fYm').value,
+    s:document.getElementById('fSup').value,
+    kw:document.getElementById('fKey').value.trim().toLowerCase()
+  };
+}
+function matchRec(r,q,skipDd){
+  if(!skipDd&&q.dd&&ddOf(r)!==q.dd) return false;
+  if(q.yr&&String(r.y||'').slice(0,4)!==q.yr) return false;
+  if(q.m&&parseInt(String(r.y||'').slice(5,7),10)!==parseInt(q.m,10)) return false;
+  if(q.s&&r.s!==q.s) return false;
+  if(q.kw){ const blob=((r.s||'')+' '+(r.c||'')+' '+ddOf(r)).toLowerCase(); if(!blob.includes(q.kw)) return false; }
+  return true;
+}
 function applyFilter(){
-  const dd=document.getElementById('fDd').value;
-  const yr=document.getElementById('fYear').value;
-  const m=document.getElementById('fYm').value;
-  const s=document.getElementById('fSup').value;
-  const kw=document.getElementById('fKey').value.trim().toLowerCase();
-  filtered=DATA.filter(r=>{
-    if(dd&&ddOf(r)!==dd) return false;
-    if(yr&&String(r.y||'').slice(0,4)!==yr) return false;
-    if(m&&parseInt(String(r.y||'').slice(5,7),10)!==parseInt(m,10)) return false;
-    if(s&&r.s!==s) return false;
-    if(kw){ const blob=((r.s||'')+' '+(r.c||'')+' '+ddOf(r)).toLowerCase(); if(!blob.includes(kw)) return false; }
-    return true;
-  });
+  const q=currentQuery();
+  filtered=DATA.filter(r=>matchRec(r,q,false));
   filtered.sort((a,b)=>(a.y||'').localeCompare(b.y||'')||String(a.s).localeCompare(String(b.s),'zh'));
   page=1; render();
 }
@@ -428,7 +472,7 @@ function render(){
     document.getElementById('stTopSup').textContent='金额最高：'+shortName(top[0]||'—');
   } else document.getElementById('stTopSup').textContent='—';
   document.getElementById('fCount').textContent=filtered.length;
-  renderCharts(); renderTable();
+  renderCharts(); renderDdStat(); renderTable();
 }
 
 function renderCharts(){
@@ -522,6 +566,89 @@ function renderTable(){
   document.getElementById('pageBtns').innerHTML=btns;
 }
 function gotoPage(p){ page=p; renderTable(); window.scrollTo({top:document.body.scrollHeight*0.42,behavior:'smooth'}); }
+/* ===== 按调度挂账统计表 ===== */
+let ddSort={k:'a',dir:-1};
+function setDdSort(k){
+  if(ddSort.k===k) ddSort.dir=-ddSort.dir;
+  else { ddSort.k=k; ddSort.dir=(k==='dd')?1:-1; }
+  renderDdStat();
+}
+function pickDd(name){
+  const sel=document.getElementById('fDd');
+  const opt=[...sel.options].some(o=>o.value===name);
+  if(!opt){ toast('当前筛选下没有该调度的数据','err'); return; }
+  sel.value=name; onDdChange();
+  toast('已筛选：'+name,'ok');
+}
+function renderDdStat(){
+  const tb=document.getElementById('ddStatBody'), tf=document.getElementById('ddStatFoot');
+  if(!tb) return;
+  const q=currentQuery();
+  const pool=DATA.filter(r=>matchRec(r,q,true));   // 统计表忽略“调度”筛选本身，保证各调度可横向对比
+  const map={};
+  let allMonths=new Set(), totalA=0, totalN=0, totalCnt=0, supAll=new Set();
+  pool.forEach(r=>{
+    const d=ddOf(r), a=Number(r.a)||0, n=Number(r.n)||0;
+    const o=map[d]||(map[d]={dd:d,cnt:0,sup:new Set(),a:0,n:0,ys:[]});
+    o.cnt++; o.a+=a; o.n+=n;
+    if(r.s) o.sup.add(r.s);
+    if(r.y){ o.ys.push(r.y); allMonths.add(r.y); }
+    totalA+=a; totalN+=n; totalCnt++;
+    if(r.s) supAll.add(r.s);
+  });
+  let rows=Object.values(map).map(o=>{
+    const ys=o.ys.slice().sort();
+    return {dd:o.dd,cnt:o.cnt,sup:o.sup.size,a:o.a,n:o.n,tax:o.a-o.n,
+      share:totalA?o.a/totalA:0,
+      avg:o.ys.length?o.a/new Set(o.ys).size:0,
+      span:ys.length?(ys[0]===ys[ys.length-1]?fmtYm(ys[0]):fmtYm(ys[0])+' — '+fmtYm(ys[ys.length-1])):'—'};
+  });
+  const k=ddSort.k, dir=ddSort.dir;
+  rows.sort((x,y)=>{
+    if(k==='dd') return String(x.dd).localeCompare(String(y.dd),'zh')*dir;
+    return (((x[k]||0)-(y[k]||0))||String(x.dd).localeCompare(String(y.dd),'zh'))*dir;
+  });
+
+  if(!rows.length){
+    tb.innerHTML='<tr class="empty-row"><td colspan="9">当前筛选范围内没有数据</td></tr>';
+    tf.innerHTML='';
+  } else {
+    tb.innerHTML=rows.map(r=>`<tr class="dd-row" onclick="pickDd('${esc(r.dd).replace(/'/g,'&#39;')}')" title="点击只看 ${esc(r.dd)} 的数据">
+      <td><span class="tag-dd">${esc(r.dd)}</span></td>
+      <td class="num">${r.cnt}</td>
+      <td class="num">${r.sup}</td>
+      <td class="num amt">${fmtN(r.a)}</td>
+      <td class="num">${fmtN(r.n)}</td>
+      <td class="num">${fmtN(r.tax)}</td>
+      <td class="num"><div class="share-cell"><div class="share-bar"><i style="width:${(r.share*100).toFixed(1)}%"></i></div><span class="share-pct">${(r.share*100).toFixed(1)}%</span></div></td>
+      <td class="num">${fmtN(r.avg)}</td>
+      <td style="color:var(--muted);font-size:12.5px;white-space:nowrap">${r.span}</td>
+    </tr>`).join('');
+    tf.innerHTML=`<tr>
+      <td>合计 ${rows.length} 位</td>
+      <td class="num">${totalCnt}</td>
+      <td class="num">${supAll.size}</td>
+      <td class="num amt">${fmtN(totalA)}</td>
+      <td class="num">${fmtN(totalN)}</td>
+      <td class="num">${fmtN(totalA-totalN)}</td>
+      <td class="num"><div class="share-cell"><div class="share-bar"><i style="width:100%"></i></div><span class="share-pct">100%</span></div></td>
+      <td class="num">${fmtN(allMonths.size?totalA/allMonths.size:0)}</td>
+      <td style="color:var(--muted);font-size:12.5px">${allMonths.size} 个月有数据</td>
+    </tr>`;
+  }
+  document.querySelectorAll('th.sortable').forEach(th=>{
+    const on=th.dataset.k===k;
+    th.classList.toggle('on',on);
+    const ar=th.querySelector('.ar');
+    if(ar) ar.textContent=on?(dir>0?'↑':'↓'):'↕';
+  });
+  const top=rows.slice().sort((x,y)=>y.a-x.a)[0];
+  const tip=document.getElementById('ddStatTip');
+  if(tip) tip.textContent = rows.length
+    ? `当前范围共 ${rows.length} 位调度 · 挂账合计 ${fmtN(totalA)} 元 · 最高：${top.dd}（${(top.share*100).toFixed(1)}%）｜点击表头排序，点击某行只看该调度`
+    : '当前筛选范围内没有数据';
+}
+
 function resetFilter(){
   document.getElementById('fDd').value='';
   buildFilterOptions();
