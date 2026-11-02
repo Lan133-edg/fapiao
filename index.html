@@ -50,7 +50,7 @@ body::before{
 .home-sub{font-size:14.5px;color:var(--muted);max-width:620px;margin-bottom:42px}
 .module-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:38px}
 .module-card{
-  position:relative;overflow:hidden;cursor:pointer;padding:30px 28px 24px;border-radius:22px;
+  position:relative;overflow:hidden;cursor:pointer;padding:30px 28px 26px;border-radius:22px;
   border:1px solid var(--line);
   background:linear-gradient(158deg,rgba(255,255,255,.075),rgba(255,255,255,.018) 62%);
   transition:transform .28s cubic-bezier(.2,.8,.3,1),border-color .28s,box-shadow .28s;
@@ -60,10 +60,58 @@ body::before{
 .module-card.violet::after{background:linear-gradient(90deg,transparent,rgba(167,139,250,.9),transparent)}
 .module-card:hover{transform:translateY(-6px);border-color:rgba(34,211,238,.5);box-shadow:0 26px 60px -18px rgba(34,211,238,.4)}
 .module-card.violet:hover{border-color:rgba(167,139,250,.5);box-shadow:0 26px 60px -18px rgba(139,92,246,.42)}
-.mc-glow{position:absolute;width:260px;height:260px;right:-90px;top:-120px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.28),transparent 68%);pointer-events:none}
+.mc-glow{position:absolute;width:260px;height:260px;right:-90px;top:-120px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.28),transparent 68%);pointer-events:none;z-index:1}
 .module-card.violet .mc-glow{background:radial-gradient(circle,rgba(139,92,246,.3),transparent 68%)}
-.mc-icon{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#67e8f9;font-size:24px;background:linear-gradient(140deg,rgba(34,211,238,.22),rgba(59,130,246,.16));border:1px solid rgba(34,211,238,.3);margin-bottom:18px}
-.module-card.violet .mc-icon{color:#c4b5fd;background:linear-gradient(140deg,rgba(139,92,246,.24),rgba(236,72,153,.14));border-color:rgba(167,139,250,.32)}
+/* 透视网格背景层 */
+.mc-scene{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.mc-grid{
+  position:absolute;left:-45%;right:-45%;top:196px;bottom:-40px;opacity:.56;
+  background-image:
+    linear-gradient(rgba(34,211,238,.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,211,238,.5) 1px, transparent 1px);
+  background-size:46px 46px;
+  transform:perspective(320px) rotateX(56deg);
+  transform-origin:50% 0%;
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),rgba(0,0,0,.3) 50%,transparent 90%);
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),rgba(0,0,0,.3) 50%,transparent 90%);
+}
+.module-card.violet .mc-grid{
+  background-image:
+    linear-gradient(rgba(167,139,250,.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167,139,250,.5) 1px, transparent 1px);
+}
+.mc-hz{position:absolute;left:0;right:0;top:195px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.85) 30%,rgba(34,211,238,.85) 70%,transparent);
+  box-shadow:0 0 24px 2px rgba(34,211,238,.32)}
+.module-card.violet .mc-hz{background:linear-gradient(90deg,transparent,rgba(167,139,250,.9) 30%,rgba(167,139,250,.9) 70%,transparent);
+  box-shadow:0 0 24px 2px rgba(139,92,246,.38)}
+.mc-scene::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to top,rgba(8,13,26,.76),rgba(8,13,26,.2) 32%,rgba(8,13,26,0) 60%)}
+.mc-body{position:relative;z-index:2;width:100%;word-wrap:break-word;overflow-wrap:break-word}
+/* 立体玻璃图标 */
+.mc-icon{width:62px;height:62px;border-radius:19px;display:flex;align-items:center;justify-content:center;color:#a5f3fc;font-size:28px;position:relative;margin-bottom:20px;
+  background:
+    radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.32), transparent 58%),
+    linear-gradient(150deg, rgba(34,211,238,.4), rgba(59,130,246,.2) 50%, rgba(139,92,246,.18));
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    inset 0 -9px 20px -12px rgba(34,211,238,.95),
+    0 12px 28px -14px rgba(34,211,238,.75);
+}
+.mc-icon::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.22),transparent 44%)}
+.mc-icon svg{filter:drop-shadow(0 1px 2px rgba(4,18,31,.55))}
+.module-card.violet .mc-icon{color:#ddd6fe;
+  background:
+    radial-gradient(120% 90% at 18% 0%, rgba(255,255,255,.32), transparent 58%),
+    linear-gradient(150deg, rgba(167,139,250,.42), rgba(139,92,246,.24) 50%, rgba(236,72,153,.2));
+  border-color:rgba(255,255,255,.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    inset 0 -9px 20px -12px rgba(167,139,250,.95),
+    0 12px 28px -14px rgba(139,92,246,.8);
+}
 .mc-title{font-size:21px;font-weight:700;letter-spacing:.5px;margin-bottom:8px}
 .mc-desc{font-size:13px;color:var(--muted);min-height:54px;line-height:1.7}
 .mc-metrics{display:flex;gap:26px;margin:18px 0 20px;padding-top:18px;border-top:1px solid var(--line-soft)}
@@ -212,6 +260,8 @@ footer.page-foot{text-align:center;color:var(--muted);font-size:11.5px;padding:2
   .stat-label{font-size:11.5px}
   .stat-extra{font-size:11px}
   .module-grid{grid-template-columns:1fr}
+  .module-card{padding:24px 22px 22px}
+  .mc-icon{width:56px;height:56px;border-radius:17px}
   .main{padding:16px 14px 44px}
   .home{padding:22px 16px 30px}
   .home-top{margin-bottom:5vh}
@@ -238,25 +288,31 @@ footer.page-foot{text-align:center;color:var(--muted);font-size:11.5px;padding:2
     <div class="module-grid">
       <div class="module-card" onclick="showView('invoice')">
         <div class="mc-glow"></div>
-        <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></div>
-        <div class="mc-title">发票统计</div>
-        <div class="mc-desc">按调度、年份、月份、供应商查看应付台账，含含税／不含税对比与按调度挂账统计</div>
-        <div class="mc-metrics">
-          <div><b id="hmInvAmt">--</b><span>应付金额（原币）</span></div>
-          <div><b id="hmInvCnt">--</b><span>记录条数</span></div>
+        <div class="mc-scene"><div class="mc-grid"></div><div class="mc-hz"></div></div>
+        <div class="mc-body">
+          <div class="mc-icon"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4.8h11l5.6 5.6v16.6a1.9 1.9 0 0 1-1.9 1.9H7.5a1.9 1.9 0 0 1-1.9-1.9V6.7a1.9 1.9 0 0 1 1.9-1.9Z"/><path d="M18.5 4.8v5.6h5.6"/><path d="M10.2 15.4h10.4M10.2 19.8h10.4M10.2 24.1h6.4"/></svg></div>
+          <div class="mc-title">发票统计</div>
+          <div class="mc-desc">按调度、年份、月份、供应商查看应付台账，含含税／不含税对比与按调度挂账统计</div>
+          <div class="mc-metrics">
+            <div><b id="hmInvAmt">--</b><span>应付金额（原币）</span></div>
+            <div><b id="hmInvCnt">--</b><span>记录条数</span></div>
+          </div>
+          <div class="mc-enter">进入板块 <span>→</span></div>
         </div>
-        <div class="mc-enter">进入板块 <span>→</span></div>
       </div>
       <div class="module-card violet" onclick="showView('accrual')">
         <div class="mc-glow"></div>
-        <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8.5 12 3 3 8.5l9 5.5 9-5.5z"/><path d="M3 8.5V16l9 5 9-5V8.5"/><path d="M12 14v7"/></svg></div>
-        <div class="mc-title">暂估台账</div>
-        <div class="mc-desc">按采购组、年份、凭证日期分析已收货未开票金额，含供应商排名与采购组结构</div>
-        <div class="mc-metrics">
-          <div><b id="hmAccAmt">--</b><span>暂估金额</span></div>
-          <div><b id="hmAccCnt">--</b><span>明细行数</span></div>
+        <div class="mc-scene"><div class="mc-grid"></div><div class="mc-hz"></div></div>
+        <div class="mc-body">
+          <div class="mc-icon"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4.6 27 10.6v10.8L16 27.4 5 21.4V10.6Z"/><path d="M5 10.6 16 16.6 27 10.6"/><path d="M16 16.6v10.8"/></svg></div>
+          <div class="mc-title">暂估台账</div>
+          <div class="mc-desc">按采购组、年份、凭证日期分析已收货未开票金额，含供应商排名与采购组结构</div>
+          <div class="mc-metrics">
+            <div><b id="hmAccAmt">--</b><span>暂估金额</span></div>
+            <div><b id="hmAccCnt">--</b><span>明细行数</span></div>
+          </div>
+          <div class="mc-enter">进入板块 <span>→</span></div>
         </div>
-        <div class="mc-enter">进入板块 <span>→</span></div>
       </div>
     </div>
     <div class="home-foot">
