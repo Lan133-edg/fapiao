@@ -892,6 +892,7 @@ function render(){
 }
 
 function renderCharts(){
+  if(typeof echarts==='undefined') return;   // CDN 未加载时不影响表格与筛选
   const yrSel=document.getElementById('fYear');
   const yr=yrSel?yrSel.value:'';
   const allYms=[...new Set(DATA.map(r=>r.y).filter(Boolean))].sort();
@@ -1361,6 +1362,7 @@ function zRender(){
 }
 
 function zRenderCharts(){
+  if(typeof echarts==='undefined') return;
   const C=['#22d3ee','#3b82f6','#8b5cf6','#2dd4bf','#f472b6','#fbbf24','#60a5fa','#a78bfa','#34d399','#f97316'];
   /* 1. 采购组占比 */
   const ga={}; zFiltered.forEach(r=>{ ga[r.g]=(ga[r.g]||0)+(r.z||0); });
@@ -1650,6 +1652,7 @@ function tickClock(){
   tickClock(); setInterval(tickClock,30000);
 
   buildFilterOptions();
+  if(typeof echarts==='undefined') setTimeout(()=>toast('图表库未能加载，图表暂不可用；数据与筛选仍可正常使用','err'),800);
   const h=(location.hash||'').replace('#','');
   showView(h==='invoice'||h==='accrual'?h:'home');
 })();
